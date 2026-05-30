@@ -4,6 +4,9 @@ return [
     // Set to 'test' for sandbox, 'prod' for production.
     'env' => env('SHOPEE_ENV', 'test'),
 
+    // Optional: set true if sign fails with shpk-prefixed keys from Shopee Console
+    'partner_key_strip_shpk' => (bool) env('SHOPEE_PARTNER_KEY_STRIP_SHPK', false),
+
     'partner_id' => (int) env('SHOPEE_PARTNER_ID'),
     'partner_key' => env('SHOPEE_PARTNER_KEY'),
 

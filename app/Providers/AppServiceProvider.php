@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($url = config('app.url')) {
-            if (str_starts_with($url, 'https://')) {
+            if (str_starts_with($url, 'https://') || config('shopee.env') === 'prod') {
                 \Illuminate\Support\Facades\URL::forceScheme('https');
             }
         }

@@ -38,9 +38,9 @@ class ShopeeClient
     {
         $path = '/api/v2/shop/auth_partner';
         $timestamp = time();
-        $redirectUrl = config('shopee.redirect_url');
+        $redirectUrl = self::resolveRedirectUrl();
 
-        if (!$redirectUrl) {
+        if ($redirectUrl === '') {
             throw new \RuntimeException('SHOPEE_REDIRECT_URL is not configured.');
         }
 
@@ -244,7 +244,8 @@ private function signPrivate(string $path, int $timestamp, string $accessToken, 
 }
 
 /**
- * Shopee console keys often start with "shpk" — HMAC uses the part after shpk.
+ * Shopee docs: HMAC-SHA256(partner_id + path + timestamp, partner_key as UTF-8 string).
+ * Default: use key exactly as copied from Console (including shpk prefix if present).
  */
 private static function normalizePartnerKey(string $key): string
 {
@@ -253,11 +254,36 @@ private static function normalizePartnerKey(string $key): string
         return '';
     }
 
-    if (str_starts_with($key, 'shpk')) {
+    if (config('shopee.partner_key_strip_shpk') && str_starts_with($key, 'shpk')) {
         return substr($key, 4);
     }
 
     return $key;
+}
+
+/**
+ * Callback must be HTTPS in production and match the domain in Shopee Console.
+ */
+private static function resolveRedirectUrl(): string
+{
+    $url = trim((string) config('shopee.redirect_url', ''));
+
+    if ($url === '') {
+        $appUrl = rtrim(trim((string) config('app.url', '')), '/');
+        if ($appUrl !== '') {
+            $url = $appUrl . '/integrations/shopee/callback';
+        }
+    }
+
+    if ($url === '') {
+        return '';
+    }
+
+    if (config('shopee.env') === 'prod' && str_starts_with($url, 'http://')) {
+        $url = 'https://' . substr($url, 7);
+    }
+
+    return $url;
 }
 
 
