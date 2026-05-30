@@ -62,6 +62,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ShopeeSyncAdsCommand::class,
         \App\Console\Commands\ShopeeSyncAllShopsCommand::class,
         \App\Console\Commands\ShopeeSyncBcgCommand::class,
+        \App\Console\Commands\ShopeeBackfillCommand::class,
         \App\Console\Commands\CeoCheckAlertsCommand::class,
     ];
 }

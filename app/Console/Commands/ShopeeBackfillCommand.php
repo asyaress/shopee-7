@@ -1,0 +1,131 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\ShopeeToken;
+use App\Services\Shopee\ShopeeAdsSyncService;
+use App\Services\Shopee\ShopeeBcgSyncService;
+use App\Services\Shopee\ShopeeClient;
+use App\Services\Shopee\ShopeeOrderSyncService;
+use App\Services\Shopee\ShopeeProductSyncService;
+use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+
+class ShopeeBackfillCommand extends Command
+{
+    protected $signature = 'shopee:backfill
+        {--from= : Tanggal mulai order (Y-m-d), contoh 2020-01-01}
+        {--to= : Tanggal akhir order (Y-m-d), default hari ini}
+        {--page_size=100 : Page size produk (1-100)}
+        {--ads-days=90 : Hari iklan terakhir (max 90, batas API Shopee)}
+        {--skip-products : Lewati sync produk}
+        {--skip-orders : Lewati sync order}
+        {--skip-ads : Lewati sync iklan}
+        {--skip-bcg : Lewati sync BCG}
+        {--env= : Override shopee.env (test/prod)}
+        {--shop_id= : Override shop_id}';
+
+    protected $description = 'Tarik data Shopee historis: produk + order dari tanggal tertentu + ads + BCG';
+
+    public function handle(): int
+    {
+        $fromOpt = trim((string) $this->option('from'));
+        if ($fromOpt === '' && !$this->option('skip-orders')) {
+            $this->error('Wajib isi --from=YYYY-MM-DD (tanggal toko mulai jual / data pertama yang ingin ditarik).');
+            $this->line('Contoh: php artisan shopee:backfill --from=2020-01-01');
+
+            return self::FAILURE;
+        }
+
+        $token = $this->getCurrentToken($this->option('env'), $this->option('shop_id'));
+        if (!$token) {
+            $this->error('Tidak ada token Shopee. Connect dulu di Integrasi Shopee.');
+
+            return self::FAILURE;
+        }
+
+        $client = ShopeeClient::fromConfig();
+        $this->info("Backfill env={$token->env} shop_id={$token->shop_id}");
+
+        try {
+            if (!$this->option('skip-products')) {
+                $pageSize = max(1, min(100, (int) $this->option('page_size')));
+                $this->info('1/4 Sync semua produk aktif...');
+                $p = (new ShopeeProductSyncService($client))->syncAll($token, $pageSize);
+                $this->info("   Produk: created={$p['created']} updated={$p['updated']} processed={$p['processed']}");
+            }
+
+            if (!$this->option('skip-orders')) {
+                $from = Carbon::parse($fromOpt)->startOfDay();
+                $to = $this->option('to')
+                    ? Carbon::parse((string) $this->option('to'))->endOfDay()
+                    : now()->endOfDay();
+
+                if ($from->gte($to)) {
+                    $this->error('--from harus lebih awal dari --to');
+
+                    return self::FAILURE;
+                }
+
+                $this->info("2/4 Sync order {$from->toDateString()} → {$to->toDateString()} (auto-chunk 14 hari)...");
+                $this->warn('   Proses bisa lama jika toko sudah bertahun-tahun. Jangan interrupt.');
+
+                $o = (new ShopeeOrderSyncService($client))->syncSince(
+                    $token,
+                    $from->timestamp,
+                    $to->timestamp
+                );
+                $this->info("   Order: created={$o['created']} updated={$o['updated']} processed={$o['processed']}");
+            }
+
+            if (!$this->option('skip-ads')) {
+                $adsDays = max(1, min(90, (int) $this->option('ads-days')));
+                $this->info("3/4 Sync iklan {$adsDays} hari terakhir (batas API Shopee ~90 hari)...");
+                try {
+                    $a = (new ShopeeAdsSyncService($client))->sync($token, $adsDays);
+                    $this->info("   Ads: saved={$a['saved']} skipped={$a['skipped']}");
+                } catch (\Throwable $e) {
+                    $this->warn('   Ads dilewati: ' . $e->getMessage());
+                }
+            }
+
+            if (!$this->option('skip-bcg')) {
+                $this->info('4/4 Sync BCG funnel (views + konversi)...');
+                try {
+                    $b = (new ShopeeBcgSyncService($client))->sync($token);
+                    $this->info("   BCG: saved={$b['saved']} skipped={$b['skipped']}");
+                } catch (\Throwable $e) {
+                    $this->warn('   BCG dilewati: ' . $e->getMessage());
+                }
+            }
+
+            $this->newLine();
+            $this->info('Backfill selesai.');
+            $this->line('Langkah manual: isi HPP produk di Kelola Data → Products agar laporan profit akurat.');
+
+            Log::info('[backfill] done', ['shop_id' => $token->shop_id, 'from' => $fromOpt]);
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->error('Backfill gagal: ' . $e->getMessage());
+            Log::error('[backfill] failed', ['shop_id' => $token->shop_id, 'error' => $e->getMessage()]);
+
+            return self::FAILURE;
+        }
+    }
+
+    private function getCurrentToken(?string $envOverride, $shopIdOverride): ?ShopeeToken
+    {
+        $env = $envOverride ?: config('shopee.env', 'test');
+        $shopId = $shopIdOverride ?: config('shopee.shop_id');
+
+        $q = ShopeeToken::query()->where('env', $env);
+
+        if ($shopId) {
+            $q->where('shop_id', (int) $shopId);
+        }
+
+        return $q->orderByDesc('id')->first();
+    }
+}

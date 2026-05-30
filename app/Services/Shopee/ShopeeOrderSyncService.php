@@ -24,17 +24,30 @@ class ShopeeOrderSyncService
     public function syncRecent(ShopeeToken $token, int $days = 7): array
     {
         $days = max(1, $days);
-        $chunkDays = max(1, (int) config('shopee.order_list_max_days', 14));
-
         $timeTo = time();
-        $overallFrom = $timeTo - ($days * 86400);
+
+        return $this->syncSince($token, $timeTo - ($days * 86400), $timeTo);
+    }
+
+    /**
+     * Sync orders between two Unix timestamps (inclusive start, exclusive quirks handled by chunking).
+     *
+     * @return array{created: int, updated: int, processed: int}
+     */
+    public function syncSince(ShopeeToken $token, int $timeFrom, int $timeTo): array
+    {
+        if ($timeFrom >= $timeTo) {
+            return ['created' => 0, 'updated' => 0, 'processed' => 0];
+        }
+
+        $chunkDays = max(1, (int) config('shopee.order_list_max_days', 14));
 
         $created = 0;
         $updated = 0;
         $processed = 0;
 
-        for ($windowEnd = $timeTo; $windowEnd > $overallFrom; $windowEnd -= $chunkDays * 86400) {
-            $windowStart = max($overallFrom, $windowEnd - ($chunkDays * 86400));
+        for ($windowEnd = $timeTo; $windowEnd > $timeFrom; $windowEnd -= $chunkDays * 86400) {
+            $windowStart = max($timeFrom, $windowEnd - ($chunkDays * 86400));
 
             $chunk = $this->syncTimeWindow($token, $windowStart, $windowEnd);
             $created += $chunk['created'];
