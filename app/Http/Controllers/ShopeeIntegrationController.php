@@ -177,7 +177,9 @@ public function debugAuthVariants()
 {
     $partnerId  = trim((string) config('shopee.partner_id'));
     $partnerKey = trim((string) config('shopee.partner_key'));
-    $host       = rtrim((string) config('shopee.hosts.test'), '/');
+    $env        = (string) config('shopee.env', 'prod');
+    $hosts      = config('shopee.hosts', []);
+    $host       = rtrim((string) ($hosts[$env] ?? $hosts['prod'] ?? ''), '/');
     $redirect   = (string) config('shopee.redirect_url');
 
     $path = '/api/v2/shop/auth_partner';
@@ -237,7 +239,9 @@ public function signMatrix()
     $partnerId  = (string) config('services.shopee.partner_id');
     $partnerKey = trim((string) config('services.shopee.partner_key'));
 
-    $host = 'https://partner.test-stable.shopeemobile.com';
+    $env  = (string) config('shopee.env', 'prod');
+    $hosts = config('shopee.hosts', []);
+    $host = rtrim((string) ($hosts[$env] ?? $hosts['prod'] ?? ''), '/');
     $path = '/api/v2/shop/auth_partner';
     $ts   = time();
 
