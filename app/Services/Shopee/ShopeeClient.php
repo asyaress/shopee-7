@@ -22,12 +22,12 @@ class ShopeeClient
     {
         $env = config('shopee.env', 'test');
         $partnerId = (int) config('shopee.partner_id');
-        $partnerKey = (string) config('shopee.partner_key');
+        $partnerKey = self::normalizePartnerKey((string) config('shopee.partner_key'));
         $hosts = config('shopee.hosts');
         $host = $hosts[$env] ?? $hosts['test'];
         $buffer = (int) config('shopee.refresh_buffer', 300);
 
-        if (!$partnerId || !$partnerKey) {
+        if (!$partnerId || $partnerKey === '') {
             throw new \RuntimeException('Shopee partner credentials are not configured. Set SHOPEE_PARTNER_ID & SHOPEE_PARTNER_KEY.');
         }
 
@@ -231,14 +231,33 @@ class ShopeeClient
 
 private function signPublic(string $path, int $timestamp): string
 {
-    $base = $this->partnerId . $path . $timestamp;
+    $base = (string) $this->partnerId . $path . (string) $timestamp;
+
     return hash_hmac('sha256', $base, $this->partnerKey, false);
 }
 
 private function signPrivate(string $path, int $timestamp, string $accessToken, int $shopId): string
 {
-    $base = $this->partnerId . $path . $timestamp . $accessToken . $shopId;
+    $base = (string) $this->partnerId . $path . (string) $timestamp . $accessToken . (string) $shopId;
+
     return hash_hmac('sha256', $base, $this->partnerKey, false);
+}
+
+/**
+ * Shopee console keys often start with "shpk" — HMAC uses the part after shpk.
+ */
+private static function normalizePartnerKey(string $key): string
+{
+    $key = trim($key);
+    if ($key === '') {
+        return '';
+    }
+
+    if (str_starts_with($key, 'shpk')) {
+        return substr($key, 4);
+    }
+
+    return $key;
 }
 
 
