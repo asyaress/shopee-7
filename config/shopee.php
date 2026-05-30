@@ -24,6 +24,9 @@ return [
     // Safety buffer to refresh access token before expiry (seconds)
     'refresh_buffer' => (int) env('SHOPEE_REFRESH_BUFFER', 300),
 
+    // Shopee get_order_list: time_to - time_from must be <= 15 days (use 14 to be safe)
+    'order_list_max_days' => (int) env('SHOPEE_ORDER_LIST_MAX_DAYS', 14),
+
     // Default sync window (days)
     'sync_days' => (int) env('SHOPEE_SYNC_DAYS', 7),
 

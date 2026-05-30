@@ -47,7 +47,8 @@
                         <form method="POST" action="{{ route('shopee.sync') }}" class="sync-action-card">
                             @csrf
                             <i class="fas fa-shopping-cart"></i><strong>Order</strong>
-                            <input type="number" name="days" value="7" min="1" max="90" class="hub-form-control hub-form-control-sm mt-1" {{ $token ? '' : 'disabled' }}>
+                            <input type="number" name="days" value="7" min="1" max="90" class="hub-form-control hub-form-control-sm mt-1" {{ $token ? '' : 'disabled' }} title="Rentang hari (API Shopee max 15 hari per request; otomatis di-chunk)">
+                            <span class="text-muted" style="font-size:0.7rem;">hari (max 90, auto-chunk)</span>
                             <button class="hub-btn hub-btn-outline hub-btn-sm w-100 mt-2" {{ $token ? '' : 'disabled' }}>Sync</button>
                         </form>
                         <form method="POST" action="{{ route('shopee.sync-products') }}" class="sync-action-card">

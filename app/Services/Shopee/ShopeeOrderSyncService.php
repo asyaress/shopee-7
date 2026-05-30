@@ -18,13 +18,38 @@ class ShopeeOrderSyncService
 
     /**
      * Sync recent orders from Shopee into local orders + order_items.
+     * Shopee API limits each get_order_list call to a 15-day window; longer ranges are chunked automatically.
      * Returns summary counters.
      */
     public function syncRecent(ShopeeToken $token, int $days = 7): array
     {
-        $timeTo = time();
-        $timeFrom = $timeTo - ($days * 86400);
+        $days = max(1, $days);
+        $chunkDays = max(1, (int) config('shopee.order_list_max_days', 14));
 
+        $timeTo = time();
+        $overallFrom = $timeTo - ($days * 86400);
+
+        $created = 0;
+        $updated = 0;
+        $processed = 0;
+
+        for ($windowEnd = $timeTo; $windowEnd > $overallFrom; $windowEnd -= $chunkDays * 86400) {
+            $windowStart = max($overallFrom, $windowEnd - ($chunkDays * 86400));
+
+            $chunk = $this->syncTimeWindow($token, $windowStart, $windowEnd);
+            $created += $chunk['created'];
+            $updated += $chunk['updated'];
+            $processed += $chunk['processed'];
+        }
+
+        return compact('created', 'updated', 'processed');
+    }
+
+    /**
+     * @return array{created: int, updated: int, processed: int}
+     */
+    private function syncTimeWindow(ShopeeToken $token, int $timeFrom, int $timeTo): array
+    {
         $cursor = '';
         $more = true;
 
