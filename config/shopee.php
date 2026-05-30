@@ -10,6 +10,12 @@ return [
     'partner_id' => (int) env('SHOPEE_PARTNER_ID'),
     'partner_key' => env('SHOPEE_PARTNER_KEY'),
 
+    // Product statuses to sync (comma-separated). UNLIST = arsip Seller Center.
+    'product_item_statuses' => array_values(array_filter(array_map('trim', explode(',', env(
+        'SHOPEE_PRODUCT_STATUSES',
+        'NORMAL,UNLIST,BANNED,REVIEWING,SELLER_DELETE,SHOPEE_DELETE'
+    ))))),
+
     // Full callback URL (must be under the domain you set in Shopee Open Platform)
     'redirect_url' => env('SHOPEE_REDIRECT_URL'),
 

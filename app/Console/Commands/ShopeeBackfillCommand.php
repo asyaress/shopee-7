@@ -7,6 +7,7 @@ use App\Services\Shopee\ShopeeAdsSyncService;
 use App\Services\Shopee\ShopeeBcgSyncService;
 use App\Services\Shopee\ShopeeClient;
 use App\Services\Shopee\ShopeeOrderSyncService;
+use App\Services\Shopee\ShopeeProductCatalog;
 use App\Services\Shopee\ShopeeProductSyncService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -51,9 +52,14 @@ class ShopeeBackfillCommand extends Command
         try {
             if (!$this->option('skip-products')) {
                 $pageSize = max(1, min(100, (int) $this->option('page_size')));
-                $this->info('1/4 Sync semua produk aktif...');
-                $p = (new ShopeeProductSyncService($client))->syncAll($token, $pageSize);
+                $statuses = implode(', ', ShopeeProductCatalog::itemStatuses());
+                $this->info("1/4 Sync produk (termasuk arsip: {$statuses})...");
+                $productSvc = new ShopeeProductSyncService($client);
+                $p = $productSvc->syncAll($token, $pageSize);
                 $this->info("   Produk: created={$p['created']} updated={$p['updated']} processed={$p['processed']}");
+
+                $relink = $productSvc->relinkOrderItems((int) $token->shop_id);
+                $this->info("   Relink order_items → produk: {$relink['linked']} baris");
             }
 
             if (!$this->option('skip-orders')) {

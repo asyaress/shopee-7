@@ -17,6 +17,7 @@ class ShopeeProductSyncService
 
     /**
      * Sync Shopee products into `products` (+ `product_variants`).
+     * Includes archived/unlisted items per config shopee.product_item_statuses.
      */
     public function syncAll(ShopeeToken $token, int $pageSize = 100): array
     {
@@ -26,20 +27,67 @@ class ShopeeProductSyncService
         $updated = 0;
         $processed = 0;
 
+        foreach (ShopeeProductCatalog::itemStatuses() as $status) {
+            $chunk = $this->syncByStatus($token, $pageSize, $status);
+            $created += $chunk['created'];
+            $updated += $chunk['updated'];
+            $processed += $chunk['processed'];
+        }
+
+        return compact('created', 'updated', 'processed');
+    }
+
+    /**
+     * Link order_items to products by external_item_id (after archived product sync).
+     *
+     * @return array{linked: int}
+     */
+    public function relinkOrderItems(int $shopId): array
+    {
+        $products = Product::query()
+            ->where('external_platform', 'shopee')
+            ->where('external_shop_id', $shopId)
+            ->whereNotNull('external_item_id')
+            ->pluck('id', 'external_item_id');
+
+        $linked = 0;
+
+        foreach ($products as $itemId => $productId) {
+            $linked += DB::table('order_items')
+                ->where('external_platform', 'shopee')
+                ->where('external_item_id', (int) $itemId)
+                ->where(function ($q) use ($productId) {
+                    $q->whereNull('product_id')
+                        ->orWhere('product_id', '!=', (int) $productId);
+                })
+                ->update(['product_id' => (int) $productId]);
+        }
+
+        return ['linked' => $linked];
+    }
+
+    /**
+     * @return array{created: int, updated: int, processed: int}
+     */
+    private function syncByStatus(ShopeeToken $token, int $pageSize, string $status): array
+    {
+        $created = 0;
+        $updated = 0;
+        $processed = 0;
+
         $offset = 0;
         $hasNext = true;
 
         while ($hasNext) {
             $listResp = $this->client->requestPrivate('GET', '/api/v2/product/get_item_list', [
-                // Region/account berbeda bisa punya param berbeda; ini yang paling umum di v2.
                 'page_size' => $pageSize,
                 'offset' => $offset,
-                'item_status' => 'NORMAL',
+                'item_status' => $status,
             ], $token);
 
             $items = Arr::get($listResp, 'item', Arr::get($listResp, 'item_list', []));
             $items = is_array($items) ? $items : [];
-            $itemIds = array_values(array_filter(array_map(fn($it) => Arr::get($it, 'item_id'), $items)));
+            $itemIds = array_values(array_filter(array_map(fn ($it) => Arr::get($it, 'item_id'), $items)));
 
             if (empty($itemIds)) {
                 break;
@@ -62,7 +110,6 @@ class ShopeeProductSyncService
                 }
             }
 
-            // Pagination handling (Shopee responses vary)
             $hasNext = (bool) (Arr::get($listResp, 'has_next_page', false) || Arr::get($listResp, 'more', false));
             $nextOffset = Arr::get($listResp, 'next_offset');
             if ($nextOffset !== null) {
@@ -86,7 +133,7 @@ class ShopeeProductSyncService
         $desc = Arr::get($it, 'description');
 
         $status = (string) (Arr::get($it, 'item_status') ?? Arr::get($it, 'status') ?? 'NORMAL');
-        $isActive = strtoupper($status) === 'NORMAL';
+        $isActive = ShopeeProductCatalog::isActiveStatus($status);
 
         $imageUrl = null;
         $images = Arr::get($it, 'image.image_url_list', Arr::get($it, 'image_url_list', []));

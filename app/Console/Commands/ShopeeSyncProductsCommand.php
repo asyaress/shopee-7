@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ShopeeToken;
 use App\Services\Shopee\ShopeeClient;
+use App\Services\Shopee\ShopeeProductCatalog;
 use App\Services\Shopee\ShopeeProductSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -35,10 +36,12 @@ class ShopeeSyncProductsCommand extends Command
         $svc = new ShopeeProductSyncService($client);
 
         try {
-            $this->info("Sync products env={$token->env} shop_id={$token->shop_id} page_size={$pageSize} ...");
+            $this->info("Sync products env={$token->env} shop_id={$token->shop_id} statuses=" . implode(',', ShopeeProductCatalog::itemStatuses()) . " ...");
             $summary = $svc->syncAll($token, $pageSize);
 
-            $msg = "DONE products: Created={$summary['created']} Updated={$summary['updated']} Processed={$summary['processed']}";
+            $relink = $svc->relinkOrderItems((int) $token->shop_id);
+
+            $msg = "DONE products: Created={$summary['created']} Updated={$summary['updated']} Processed={$summary['processed']} Relinked={$relink['linked']}";
             $this->info($msg);
             Log::info('[CRON] '.$msg, ['env'=>$token->env,'shop_id'=>$token->shop_id,'page_size'=>$pageSize]);
 

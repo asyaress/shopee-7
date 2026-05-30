@@ -157,36 +157,7 @@ class ShopeeBcgSyncService
     /** @return list<int> */
     private function fetchItemIdsFromApi(ShopeeToken $token): array
     {
-        $ids = [];
-        $offset = 0;
-        $pageSize = 100;
-        $hasNext = true;
-
-        while ($hasNext) {
-            $listResp = $this->client->requestPrivate('GET', '/api/v2/product/get_item_list', [
-                'page_size' => $pageSize,
-                'offset' => $offset,
-                'item_status' => 'NORMAL',
-            ], $token);
-
-            $items = Arr::get($listResp, 'item', Arr::get($listResp, 'item_list', []));
-            if (!is_array($items) || empty($items)) {
-                break;
-            }
-
-            foreach ($items as $it) {
-                $id = (int) Arr::get($it, 'item_id', 0);
-                if ($id > 0) {
-                    $ids[] = $id;
-                }
-            }
-
-            $hasNext = (bool) (Arr::get($listResp, 'has_next_page', false) || Arr::get($listResp, 'more', false));
-            $nextOffset = Arr::get($listResp, 'next_offset');
-            $offset = $nextOffset !== null ? (int) $nextOffset : $offset + $pageSize;
-        }
-
-        return array_values(array_unique($ids));
+        return ShopeeProductCatalog::fetchAllItemIds($this->client, $token);
     }
 
     /**
