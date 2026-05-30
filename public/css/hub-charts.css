@@ -1,0 +1,179 @@
+/**
+ * Fintech-style chart panels — stack vertikal, full width, interaktif
+ */
+.fc-chart-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+}
+
+.fc-chart-stack--tight {
+    gap: 1rem;
+}
+
+.fc-chart-panel {
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 8px 24px rgba(107, 21, 40, 0.06);
+    overflow: hidden;
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.fc-chart-panel:hover {
+    border-color: rgba(154, 37, 66, 0.2);
+    box-shadow:
+        0 4px 12px rgba(15, 23, 42, 0.06),
+        0 12px 32px rgba(107, 21, 40, 0.1);
+}
+
+.fc-chart-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.fc-chart-panel__head h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.fc-chart-panel__head p {
+    margin: 0.2rem 0 0;
+    font-size: 0.8125rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.fc-chart-panel__badge {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    background: #fce8ee;
+    color: #6b1528;
+}
+
+.fc-chart-kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 0 1.25rem 0.75rem;
+}
+
+.fc-chart-kpi {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.fc-chart-kpi strong {
+    color: #0f172a;
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+
+.fc-chart-panel__canvas {
+    position: relative;
+    width: 100%;
+    padding: 0.75rem 1rem 1rem;
+    min-height: 280px;
+    height: clamp(280px, 38vw, 380px);
+}
+
+.fc-chart-panel__canvas--hero {
+    min-height: 320px;
+    height: clamp(320px, 45vw, 420px);
+}
+
+.fc-chart-panel__canvas--compact {
+    min-height: 240px;
+    height: clamp(240px, 32vw, 300px);
+}
+
+.fc-chart-panel__canvas--square {
+    min-height: 280px;
+    height: auto;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.fc-chart-panel__canvas canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    cursor: crosshair;
+}
+
+/* Legacy wrappers — align with new stack */
+.mon-chart-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.mon-chart-card {
+    background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(107, 21, 40, 0.06);
+    overflow: hidden;
+}
+
+.mon-chart-card .mon-chart-body {
+    padding: 0.75rem 1rem 1rem;
+    height: clamp(280px, 38vw, 380px);
+    min-height: 280px;
+}
+
+.mon-chart-card.tall .mon-chart-body {
+    height: clamp(320px, 45vw, 420px);
+    min-height: 320px;
+}
+
+.chart-wrap {
+    position: relative;
+    width: 100%;
+    min-height: 280px;
+    height: clamp(280px, 38vw, 380px);
+    padding: 0.75rem 1rem;
+}
+
+.report-shell .row.g-3 > [class*="col-"] {
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+}
+
+@media (min-width: 992px) {
+    .fc-chart-duo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+
+    .fc-chart-duo .fc-chart-panel__canvas--square {
+        max-width: none;
+        margin: 0;
+    }
+}
+
+@media (max-width: 576px) {
+    .fc-chart-panel__canvas,
+    .mon-chart-card .mon-chart-body,
+    .chart-wrap {
+        min-height: 260px;
+        height: 260px;
+    }
+}

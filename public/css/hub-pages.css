@@ -1,0 +1,273 @@
+/* Halaman detail & form — Shopee Profit Hub */
+
+/* Info grid (detail pages) */
+.detail-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-info-item label {
+    font-weight: 600;
+    color: var(--report-muted, #64748b);
+    font-size: 0.8rem;
+    margin: 0;
+    display: block;
+}
+
+.detail-info-item .value {
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+@media (min-width: 992px) {
+    .detail-info-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .detail-info-item label { width: 38%; flex-shrink: 0; }
+    .detail-info-item .value { text-align: right; }
+}
+
+/* Customer block */
+.detail-customer {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.detail-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--maroon-100);
+    color: var(--maroon-700);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.detail-avatar.lg {
+    width: 88px;
+    height: 88px;
+    font-size: 2rem;
+}
+
+/* Timeline */
+.hub-timeline {
+    position: relative;
+    padding-left: 28px;
+}
+
+.hub-timeline-item {
+    position: relative;
+    margin-bottom: 1.25rem;
+}
+
+.hub-timeline-item:last-child { margin-bottom: 0; }
+
+.hub-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 10px;
+    bottom: -1.25rem;
+    width: 2px;
+    background: var(--gray-200);
+}
+
+.hub-timeline-item:last-child::before { display: none; }
+
+.hub-timeline-marker {
+    position: absolute;
+    left: -34px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-300);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--gray-300);
+}
+
+.hub-timeline-item.active .hub-timeline-marker {
+    background: #f59e0b;
+    box-shadow: 0 0 0 2px #f59e0b;
+}
+
+.hub-timeline-item.completed .hub-timeline-marker {
+    background: var(--maroon-600);
+    box-shadow: 0 0 0 2px var(--maroon-600);
+}
+
+.hub-timeline-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 0.15rem;
+}
+
+.hub-timeline-date {
+    font-size: 0.8rem;
+    color: var(--report-muted);
+}
+
+/* Price / financial summary */
+.summary-rows .row-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+}
+
+.summary-rows .row-line.total {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--maroon-800);
+    border-top: 1px solid var(--gray-200);
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+}
+
+.fin-block {
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.fin-block.fees {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+}
+
+.fin-block.net {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+}
+
+.fin-block.shopee-hdr {
+    background: var(--maroon-50);
+    border: 1px solid var(--maroon-200);
+}
+
+.fin-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0;
+}
+
+/* Sticky right panel (order detail) */
+@media (min-width: 992px) {
+    .detail-sticky-panel {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+    }
+}
+
+/* Cost editor (products/costs, show) */
+.cost-preview {
+    background: var(--maroon-50);
+    border: 1px solid var(--maroon-100);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+}
+
+.cost-preview .preview-title {
+    font-weight: 700;
+    color: var(--maroon-800);
+    margin-bottom: 0.65rem;
+}
+
+.cost-preview .preview-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+.cost-preview .label { color: var(--report-muted); font-weight: 600; }
+
+.cost-scope { margin-bottom: 1.25rem; }
+
+.table-responsive { -webkit-overflow-scrolling: touch; }
+
+.money-input { font-size: 1rem; }
+
+.input-group-unit {
+    max-width: 84px;
+    flex: 0 0 84px;
+}
+
+@media (max-width: 991.98px) {
+    table.table-variants thead { display: none; }
+    table.table-variants,
+    table.table-variants tbody,
+    table.table-variants tr,
+    table.table-variants td {
+        display: block;
+        width: 100%;
+    }
+    table.table-variants tr.variant-row {
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    table.table-variants td {
+        padding: 0.35rem 0;
+        border: none;
+    }
+    table.table-variants td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        color: var(--report-muted);
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* Status badges */
+.hub-status-pending { background: #fef3c7; color: #92400e; }
+.hub-status-progress { background: #dbeafe; color: #1e40af; }
+.hub-status-done { background: #d1fae5; color: #065f46; }
+.hub-status-cancel { background: #fee2e2; color: #991b1b; }
+
+/* Form page */
+.hub-form-page .hub-card { margin-bottom: 1.25rem; }
+
+.hub-form-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--maroon-800);
+    margin: 0 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+/* Select2 maroon */
+.select2-container .select2-selection--single {
+    height: 42px !important;
+    border: 1px solid var(--gray-300) !important;
+    border-radius: 8px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 40px !important;
+}
+
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default .select2-selection--single:focus {
+    border-color: var(--maroon-500) !important;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: var(--maroon-600) !important;
+}

@@ -1,0 +1,536 @@
+/* Laporan profesional — Shopee Profit Hub */
+
+.report-shell {
+    --report-border: #e8dce0;
+    --report-muted: #64748b;
+    --report-positive: #047857;
+    --report-negative: #b91c1c;
+    --report-info: #0369a1;
+}
+
+/* Header laporan */
+.report-hero {
+    background: linear-gradient(135deg, var(--maroon-800) 0%, var(--maroon-600) 55%, var(--maroon-500) 100%);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.report-hero h1 {
+    font-size: clamp(1.25rem, 3vw, 1.65rem);
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    color: #fff !important;
+}
+
+.report-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    font-size: 0.85rem;
+    opacity: 0.92;
+}
+
+.report-hero-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.report-health {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,.2);
+}
+
+.report-health-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: conic-gradient(#fff 0 calc(var(--score) * 1%), rgba(255,255,255,.25) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.report-health-ring span {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--maroon-700);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* KPI utama — 4 kolom hero */
+.report-kpi-hero {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 991.98px) {
+    .report-kpi-hero { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 575.98px) {
+    .report-kpi-hero { grid-template-columns: 1fr; }
+}
+
+.report-kpi-card {
+    background: #fff;
+    border: 1px solid var(--report-border);
+    border-radius: var(--radius);
+    padding: 1.15rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.report-kpi-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--maroon-500);
+}
+
+.report-kpi-card.positive::after { background: var(--report-positive); }
+.report-kpi-card.negative::after { background: var(--report-negative); }
+.report-kpi-card.warn::after { background: var(--warning); }
+
+.report-kpi-card .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--report-muted);
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.report-kpi-card .value {
+    font-size: clamp(1.15rem, 2.5vw, 1.5rem);
+    font-weight: 700;
+    color: var(--maroon-800);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.report-kpi-card .sub {
+    font-size: 0.78rem;
+    color: var(--report-muted);
+    margin-top: 0.35rem;
+}
+
+.report-kpi-card .delta {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+/* KPI sekunder */
+.report-kpi-secondary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+}
+
+.report-kpi-mini {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+}
+
+.report-kpi-mini .label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    color: var(--report-muted);
+    font-weight: 600;
+}
+
+.report-kpi-mini .value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--maroon-800);
+    font-variant-numeric: tabular-nums;
+}
+
+/* P&L Statement */
+.report-pl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.report-pl td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+
+.report-pl td.amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+    width: 38%;
+}
+
+.report-pl tr.subtotal td {
+    background: var(--maroon-50);
+    font-weight: 600;
+    color: var(--maroon-800);
+}
+
+.report-pl tr.total td {
+    background: var(--maroon-800);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: none;
+}
+
+.report-pl tr.child td:first-child {
+    padding-left: 1.75rem;
+    color: var(--report-muted);
+    font-size: 0.82rem;
+}
+
+.report-pl tr.fee td.amount { color: var(--report-negative); }
+.report-pl tr.revenue td.amount { color: var(--maroon-700); }
+
+/* Insight cards */
+.report-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.report-insight {
+    display: flex;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200);
+    background: #fff;
+    font-size: 0.875rem;
+}
+
+.report-insight .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.report-insight.success .icon { background: #d1fae5; color: var(--report-positive); }
+.report-insight.warning .icon { background: #fef3c7; color: #b45309; }
+.report-insight.danger .icon { background: #fee2e2; color: var(--report-negative); }
+.report-insight.info .icon { background: #e0f2fe; color: var(--report-info); }
+
+.report-insight strong {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--gray-900);
+}
+
+.report-insight p {
+    margin: 0;
+    color: var(--report-muted);
+    line-height: 1.45;
+}
+
+/* Tabel data profesional */
+.report-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+}
+
+.report-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--maroon-800);
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 0.7rem 0.75rem;
+    white-space: nowrap;
+    border: none;
+}
+
+.report-table thead th:first-child { border-radius: 8px 0 0 0; }
+.report-table thead th:last-child { border-radius: 0 8px 0 0; }
+
+.report-table tbody td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+
+.report-table tbody tr:hover td {
+    background: var(--maroon-50);
+}
+
+.report-table tbody tr:nth-child(even) td {
+    background: #fafbfc;
+}
+
+.report-table tbody tr:nth-child(even):hover td {
+    background: var(--maroon-50);
+}
+
+.report-table tfoot td {
+    background: var(--maroon-50);
+    font-weight: 700;
+    color: var(--maroon-800);
+    padding: 0.75rem;
+    border-top: 2px solid var(--maroon-200);
+}
+
+.report-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.report-table .product-cell {
+    max-width: 220px;
+}
+
+.report-table .product-cell .name {
+    font-weight: 600;
+    color: var(--gray-900);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.report-table .product-cell .sku {
+    font-size: 0.72rem;
+    color: var(--report-muted);
+}
+
+.report-table-scroll {
+    max-height: 480px;
+    overflow: auto;
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* Badge & status */
+.hub-pill {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.hub-pill-success { background: #d1fae5; color: #065f46; }
+.hub-pill-danger { background: #fee2e2; color: #991b1b; }
+.hub-pill-warning { background: #fef3c7; color: #92400e; }
+.hub-pill-muted { background: var(--gray-100); color: var(--gray-500); }
+
+.hub-pill-sm {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+}
+
+/* Amount colors — override bootstrap */
+.hub-main .amt-pos { color: var(--report-positive) !important; }
+.hub-main .amt-neg { color: var(--report-negative) !important; }
+.hub-main .text-success { color: var(--report-positive) !important; }
+.hub-main .text-danger { color: var(--report-negative) !important; }
+.hub-main .text-warning { color: #b45309 !important; }
+.hub-main .text-muted { color: var(--report-muted) !important; }
+
+/* Filter bar profesional */
+.report-filter-card {
+    background: #fff;
+    border: 1px solid var(--report-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.report-filter-card .filter-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--maroon-600);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+/* Fee bars */
+.fee-bar-row {
+    margin-bottom: 0.75rem;
+}
+
+.fee-bar-row .fee-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.fee-bar-track {
+    height: 8px;
+    background: var(--gray-100);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.fee-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--maroon-600), var(--maroon-400));
+    border-radius: 4px;
+}
+
+/* Rank list */
+.rank-list { list-style: none; padding: 0; margin: 0; }
+
+.rank-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.85rem;
+}
+
+.rank-list .rank-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--maroon-100);
+    color: var(--maroon-700);
+    font-weight: 700;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.rank-list .rank-body { flex: 1; min-width: 0; }
+.rank-list .rank-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rank-list .rank-val {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Search produk */
+.report-search {
+    max-width: 280px;
+    margin-left: auto;
+}
+
+.report-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--maroon-800);
+    margin: 0;
+}
+
+.report-section-desc {
+    font-size: 0.8rem;
+    color: var(--report-muted);
+    margin: 0.15rem 0 0;
+}
+
+/* Collapse orders */
+.report-collapse-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+.report-collapse-toggle i {
+    transition: transform 0.2s;
+}
+
+.report-collapse-toggle.collapsed i {
+    transform: rotate(-90deg);
+}
+
+/* Sync action cards (Kelola / Integrasi) */
+.sync-action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.sync-action-card {
+    border: 1px solid var(--report-border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    text-align: center;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sync-action-card:hover {
+    border-color: var(--maroon-300);
+    box-shadow: var(--shadow-sm);
+}
+
+.sync-action-card.highlight {
+    border-color: var(--maroon-400);
+    background: var(--maroon-50);
+}
+
+.sync-action-card i {
+    font-size: 1.35rem;
+    color: var(--maroon-600);
+    margin-bottom: 0.35rem;
+}
+
+.sync-action-card strong {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--maroon-800);
+}
+
+.sync-action-card span {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--report-muted);
+    margin-top: 0.15rem;
+}
+
+/* Filter card */
+.report-filter-card {
+    background: #fff;
+    border: 1px solid var(--report-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+/* DataTables pagination & table header → lihat hub-datatables.css */

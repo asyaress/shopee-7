@@ -1,0 +1,431 @@
+/**
+ * Mobile & foldable UX — Galaxy Z Fold cover/unfold + phones
+ */
+
+/* ---- Sidebar drawer ---- */
+.hub-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    top: var(--nav-h);
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1045;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body.hub-sidebar-open .hub-sidebar-backdrop {
+    display: block;
+    opacity: 1;
+}
+
+body.hub-sidebar-open {
+    overflow: hidden;
+}
+
+@media (max-width: 991.98px) {
+    .hub-sidebar {
+        position: fixed !important;
+        top: var(--nav-h) !important;
+        left: 0 !important;
+        z-index: 1050 !important;
+        height: calc(100dvh - var(--nav-h)) !important;
+        width: min(300px, 88vw) !important;
+        transform: translateX(-105%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 8px 0 32px rgba(0, 0, 0, 0.15);
+        display: block !important;
+    }
+
+    body.hub-sidebar-open .hub-sidebar {
+        transform: translateX(0);
+    }
+
+    .hub-sidebar a {
+        min-height: 44px;
+        padding-top: 0.65rem;
+        padding-bottom: 0.65rem;
+    }
+}
+
+/* ---- Top bar: cover screen (Z Fold folded ~374px) ---- */
+@media (max-width: 399px) {
+    .hub-brand > div span {
+        display: none;
+    }
+
+    .hub-brand {
+        font-size: 0.95rem;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .hub-topbar {
+        padding: 0 0.65rem;
+        gap: 0.5rem;
+    }
+
+    .hub-shop-switcher {
+        margin: 0 0.25rem !important;
+        flex: 1;
+        min-width: 0;
+        max-width: 42vw;
+    }
+
+    .hub-shop-switcher .fa-store {
+        display: none;
+    }
+
+    .hub-shop-select {
+        max-width: 100%;
+        width: 100%;
+        font-size: 0.75rem;
+        padding: 0.4rem 0.45rem;
+    }
+}
+
+@media (min-width: 400px) and (max-width: 991.98px) {
+    .hub-shop-switcher {
+        margin-left: auto !important;
+        margin-right: 0.35rem;
+    }
+
+    .hub-shop-select {
+        max-width: 130px;
+    }
+}
+
+/* ---- Bottom nav: thumb zone + safe area ---- */
+@media (max-width: 991.98px) {
+    body.hub-body {
+        padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+    }
+
+    .hub-main {
+        padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    }
+
+    .hub-bottomnav {
+        height: auto;
+        min-height: var(--bottom-nav-h);
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+    }
+
+    .hub-bottomnav a {
+        min-height: 48px;
+        font-size: 0.62rem;
+        gap: 0.15rem;
+    }
+
+    .hub-bottomnav a i {
+        font-size: 1.2rem;
+    }
+}
+
+/* ---- Monitoring subnav: horizontal scroll (many tabs) ---- */
+.mon-subnav--scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    gap: 0.25rem;
+    padding: 0.45rem 0.5rem;
+    mask-image: linear-gradient(to right, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
+}
+
+.mon-subnav--scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.mon-subnav--scroll a {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+}
+
+.mon-subnav--scroll a.active {
+    box-shadow: 0 2px 8px rgba(107, 21, 40, 0.25);
+}
+
+/* Short labels on narrow screens */
+.mon-tab-short {
+    display: none;
+}
+
+@media (max-width: 599px) {
+    .mon-tab-long {
+        display: none;
+    }
+
+    .mon-tab-short {
+        display: inline;
+    }
+}
+
+/* ---- Fold unfolded / tablet: use width wisely ---- */
+@media (min-width: 600px) and (max-width: 991.98px) {
+    .report-kpi-hero {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .report-kpi-secondary {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .mon-kpi-row {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .mon-matrix-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .bcg-quadrant-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .best-seller-mom {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .hub-main {
+        padding: 1rem 1.25rem;
+    }
+}
+
+/* Cover + small phones: single column KPI */
+@media (max-width: 599px) {
+    .report-hero {
+        padding: 1.1rem 1rem;
+    }
+
+    .report-hero-meta {
+        gap: 0.5rem 0.85rem;
+        font-size: 0.78rem;
+    }
+
+    .report-kpi-secondary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .mon-kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .mon-section-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .mon-matrix-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .report-filter-card .hub-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .report-filter-card .filter-item {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .hub-card-header.flex-wrap {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.75rem;
+    }
+
+    .report-search {
+        width: 100% !important;
+        max-width: none !important;
+    }
+}
+
+@media (max-width: 399px) {
+    .mon-kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+
+    .mon-kpi {
+        padding: 0.65rem 0.75rem;
+    }
+
+    .mon-kpi .value {
+        font-size: 0.95rem;
+    }
+
+    .report-kpi-card .value {
+        font-size: 1.05rem;
+    }
+}
+
+/* ---- Product cards (mobile table replacement) ---- */
+.hub-product-cards {
+    display: none;
+    padding: 0.75rem;
+}
+
+@media (max-width: 991.98px) {
+    .hub-product-cards {
+        display: block;
+    }
+}
+
+.hub-product-card-v2 {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.65rem;
+    border-left: 3px solid var(--maroon-500);
+}
+
+.hub-product-card-v2.is-negative {
+    border-left-color: var(--danger);
+}
+
+.hub-product-card-v2 .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.hub-product-card-v2 .card-head .name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--maroon-800);
+    text-decoration: none;
+    line-height: 1.35;
+}
+
+.hub-product-card-v2 .card-profit {
+    font-weight: 700;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.hub-product-card-v2 .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+}
+
+.hub-product-card-v2 .card-grid span {
+    color: var(--gray-500);
+}
+
+.hub-product-card-v2 .card-grid strong {
+    display: block;
+    color: var(--gray-900);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Unfold: 2-column product card grid */
+@media (min-width: 600px) and (max-width: 991.98px) {
+    .hub-product-cards {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.65rem;
+    }
+
+    .hub-product-card-v2 {
+        margin-bottom: 0;
+        height: 100%;
+    }
+}
+
+/* ---- Tables: scroll hint ---- */
+@media (max-width: 991.98px) {
+    .report-table-scroll {
+        max-height: none;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .report-table-scroll::after {
+        content: '';
+        position: sticky;
+        right: 0;
+        pointer-events: none;
+    }
+
+    .table-scroll-hint {
+        font-size: 0.7rem;
+        color: var(--gray-500);
+        text-align: center;
+        padding: 0.35rem;
+        background: var(--gray-50);
+        border-top: 1px solid var(--gray-100);
+    }
+}
+
+/* ---- Rekap grid mobile ---- */
+@media (max-width: 599px) {
+    .rekap-sticky {
+        min-width: 140px;
+        font-size: 0.75rem;
+    }
+
+    .rekap-grid {
+        font-size: 0.72rem;
+        min-width: 640px;
+    }
+}
+
+/* ---- Touch: no double-tap zoom on buttons ---- */
+.hub-btn,
+.hub-bottomnav a,
+.mon-subnav a {
+    touch-action: manipulation;
+}
+
+/* ---- Charts on mobile ---- */
+@media (max-width: 599px) {
+    .fc-chart-panel__canvas,
+    .chart-wrap {
+        min-height: 240px !important;
+        height: 52vw !important;
+        max-height: 300px !important;
+    }
+}
+
+@media (min-width: 600px) and (max-width: 991.98px) {
+    .fc-chart-duo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+/* ---- CEO nav scroll ---- */
+.ceo-nav-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.ceo-nav-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.ceo-nav-scroll a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 44px;
+}
