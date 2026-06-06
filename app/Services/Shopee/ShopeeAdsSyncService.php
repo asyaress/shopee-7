@@ -403,6 +403,61 @@ class ShopeeAdsSyncService
             }
         }
 
+        if (empty($map)) {
+            $map = $this->fetchOpenCampaignItemMap($token, $campaignIds);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Fallback mapping source when campaign setting info does not expose item lists.
+     *
+     * @param array<int, string> $campaignIds
+     * @return array<string, array<int, string>>
+     */
+    private function fetchOpenCampaignItemMap(ShopeeToken $token, array $campaignIds): array
+    {
+        $path = config('shopee.ads_endpoints.open_campaign_added_product');
+        $map = [];
+        $cursor = '';
+
+        do {
+            $params = [
+                'page_size' => 100,
+            ];
+
+            if ($cursor !== '') {
+                $params['cursor'] = $cursor;
+            }
+
+            $response = $this->client->requestPrivate('GET', $path, $params, $token);
+            $payload = $this->responsePayload($response);
+            $items = $this->extractList($payload, ['item_list', 'products', 'list', 'items']);
+
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $campaignId = (string) (Arr::get($item, 'campaign_id') ?? '');
+                $itemId = $this->normalizeItemId(Arr::get($item, 'item_id') ?? Arr::get($item, 'product_id'));
+
+                if ($campaignId === '' || $itemId === '') {
+                    continue;
+                }
+
+                if (!empty($campaignIds) && !in_array($campaignId, $campaignIds, true)) {
+                    continue;
+                }
+
+                $map[$campaignId] = array_values(array_unique(array_merge($map[$campaignId] ?? [], [$itemId])));
+            }
+
+            $cursor = (string) (Arr::get($payload, 'cursor') ?? '');
+            $hasMore = (bool) Arr::get($payload, 'has_more', false);
+        } while ($hasMore && $cursor !== '');
+
         return $map;
     }
 
