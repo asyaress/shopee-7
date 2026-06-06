@@ -169,46 +169,28 @@ class ShopeeClient
      */
     public function requestPrivate(string $method, string $path, array $params, ShopeeToken $token): array
     {
+        $json = $this->requestPrivateRaw($method, $path, $params, $token);
+
+        return $this->normalizeResponse($json, $path);
+    }
+
+    /**
+     * Call a private API and return the full Shopee JSON envelope.
+     *
+     * This is useful for debugging because it preserves `error`, `message`,
+     * `request_id`, and the raw `response` payload before normalization.
+     *
+     * @return array<string, mixed>
+     */
+    public function requestPrivateRaw(string $method, string $path, array $params, ShopeeToken $token): array
+    {
         $token = $this->ensureValidToken($token);
-
-        $timestamp = time();
-        $sign = $this->signPrivate($path, $timestamp, $token->access_token, (int) $token->shop_id);
-
-        $baseQuery = [
-            'partner_id' => $this->partnerId,
-            'timestamp' => $timestamp,
-            'access_token' => $token->access_token,
-            'shop_id' => (int) $token->shop_id,
-            'sign' => $sign,
-        ];
-
-        $url = rtrim($this->host, '/') . $path;
-
         $method = strtoupper($method);
 
-        $http = Http::timeout(30)->acceptJson();
-
-        if ($method === 'GET') {
-            $res = $http->get($url, array_merge($baseQuery, $params));
-        } else {
-            // Shopee v2 mostly uses POST with JSON bodies, but some allow query params.
-            $res = $http->asJson()->post($url . '?' . http_build_query($baseQuery), $params);
-        }
-
-        $json = $res->json();
-
-        // If auth error, try refresh once (if possible)
-        if (is_array($json) && (Arr::get($json, 'error') === 'error_auth')) {
-            Log::warning('Shopee API returned error_auth. Attempting token refresh and retry.', [
-                'path' => $path,
-                'shop_id' => $token->shop_id,
-                'env' => $this->env,
-            ]);
-
-            $token = $this->ensureValidToken($token->refresh());
-
+        $perform = function (ShopeeToken $token) use ($method, $path, $params): array {
             $timestamp = time();
             $sign = $this->signPrivate($path, $timestamp, $token->access_token, (int) $token->shop_id);
+
             $baseQuery = [
                 'partner_id' => $this->partnerId,
                 'timestamp' => $timestamp,
@@ -217,16 +199,39 @@ class ShopeeClient
                 'sign' => $sign,
             ];
 
+            $url = rtrim($this->host, '/') . $path;
+            $http = Http::timeout(30)->acceptJson();
+
             if ($method === 'GET') {
                 $res = $http->get($url, array_merge($baseQuery, $params));
             } else {
+                // Shopee v2 mostly uses POST with JSON bodies, but some allow query params.
                 $res = $http->asJson()->post($url . '?' . http_build_query($baseQuery), $params);
             }
 
             $json = $res->json();
+            if (!is_array($json)) {
+                throw new \RuntimeException("Shopee API returned non-JSON response ({$path}).");
+            }
+
+            return $json;
+        };
+
+        $json = $perform($token);
+
+        // If auth error, try refresh once (if possible)
+        if (Arr::get($json, 'error') === 'error_auth') {
+            Log::warning('Shopee API returned error_auth. Attempting token refresh and retry.', [
+                'path' => $path,
+                'shop_id' => $token->shop_id,
+                'env' => $this->env,
+            ]);
+
+            $token = $this->ensureValidToken($token->refresh());
+            $json = $perform($token);
         }
 
-        return $this->normalizeResponse($json, $path);
+        return $json;
     }
 
     /**
