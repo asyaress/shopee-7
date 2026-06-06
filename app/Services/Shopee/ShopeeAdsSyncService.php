@@ -313,6 +313,7 @@ class ShopeeAdsSyncService
             $payload = $this->responsePayload($response);
             $items = $this->extractList($payload, [
                 'campaign_list',
+                'campaign_id_list',
                 'campaigns',
                 'item_list',
                 'list',
@@ -321,11 +322,9 @@ class ShopeeAdsSyncService
 
             $count = 0;
             foreach ($items as $item) {
-                if (!is_array($item)) {
-                    continue;
-                }
-
-                $campaignId = Arr::get($item, 'campaign_id') ?? Arr::get($item, 'id');
+                $campaignId = is_array($item)
+                    ? (Arr::get($item, 'campaign_id') ?? Arr::get($item, 'id') ?? Arr::get($item, 'campaignId'))
+                    : $item;
                 if ($campaignId === null || $campaignId === '') {
                     continue;
                 }
@@ -380,7 +379,9 @@ class ShopeeAdsSyncService
             $payload = $this->responsePayload($response);
             $items = $this->extractList($payload, [
                 'campaign_list',
+                'campaign_id_list',
                 'campaigns',
+                'item_list',
                 'list',
                 'items',
             ]);
@@ -390,7 +391,12 @@ class ShopeeAdsSyncService
                     continue;
                 }
 
-                $campaignId = (string) (Arr::get($item, 'campaign_id') ?? Arr::get($item, 'id') ?? '');
+                $campaignId = (string) (
+                    Arr::get($item, 'campaign_id')
+                    ?? Arr::get($item, 'id')
+                    ?? Arr::get($item, 'campaignId')
+                    ?? ''
+                );
                 if ($campaignId === '') {
                     continue;
                 }
@@ -649,7 +655,9 @@ class ShopeeAdsSyncService
     {
         $values = [
             Arr::get($item, 'common_info.item_id_list'),
+            Arr::get($item, 'common_info.item_id'),
             Arr::get($item, 'item_id_list'),
+            Arr::get($item, 'item_id'),
             Arr::get($item, 'auto_product_ads_info'),
             Arr::get($item, 'products'),
             Arr::get($item, 'item_list'),
