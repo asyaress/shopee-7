@@ -27,11 +27,24 @@ class ShopeeAdsSyncService
         $end = Carbon::now()->endOfDay();
         $start = Carbon::now()->subDays($days - 1)->startOfDay();
 
+        return $this->syncBetween($token, $start, $end, 2);
+    }
+
+    /**
+     * Sync product-level ads performance for an explicit date range.
+     *
+     * @return array{saved:int, skipped:int, errors:array<int,string>}
+     */
+    public function syncBetween(ShopeeToken $token, Carbon $start, Carbon $end, int $pauseSeconds = 2): array
+    {
+        $start = $start->copy()->startOfDay();
+        $end = $end->copy()->endOfDay();
+
         $saved = 0;
         $skipped = 0;
         $errors = [];
 
-        $rows = $this->fetchRowsByChunks($token, $start, $end);
+        $rows = $this->fetchRowsByChunks($token, $start, $end, $pauseSeconds);
 
         if (empty($rows)) {
             return ['saved' => 0, 'skipped' => 0, 'errors' => ['Tidak ada data ads pada rentang tanggal ini.']];
@@ -83,11 +96,11 @@ class ShopeeAdsSyncService
      *
      * @return array<int, array<string, mixed>>
      */
-    private function fetchRowsByChunks(ShopeeToken $token, Carbon $start, Carbon $end): array
+    private function fetchRowsByChunks(ShopeeToken $token, Carbon $start, Carbon $end, int $pauseSeconds = 2): array
     {
         $rows = [];
         $cursor = $start->copy()->startOfDay();
-        $maxChunkDays = 30;
+        $maxChunkDays = 28;
 
         while ($cursor->lte($end)) {
             $chunkStart = $cursor->copy()->startOfDay();
@@ -96,30 +109,78 @@ class ShopeeAdsSyncService
                 $chunkEnd = $end->copy();
             }
 
-            try {
-                $chunkRows = $this->fetchProductDailyPerformance($token, $chunkStart, $chunkEnd);
-            } catch (\Throwable $e) {
-                Log::warning('Shopee ads product API failed, trying shop-level fallback', [
-                    'start' => $chunkStart->toDateString(),
-                    'end' => $chunkEnd->toDateString(),
-                    'error' => $e->getMessage(),
-                ]);
-
-                try {
-                    $chunkRows = $this->fetchShopDailyAsProductRows($token, $chunkStart, $chunkEnd);
-                } catch (\Throwable $e2) {
-                    throw new \RuntimeException(
-                        'Ads API belum dapat diakses: ' . $e2->getMessage()
-                        . ' — pastikan permission Marketing/Ads sudah disetujui Shopee.'
-                    );
-                }
-            }
+            $chunkRows = $this->fetchChunkWithRetry($token, $chunkStart, $chunkEnd);
 
             $rows = array_merge($rows, $chunkRows);
+
+            if ($pauseSeconds > 0 && $cursor->lt($end)) {
+                sleep($pauseSeconds);
+            }
+
             $cursor = $chunkEnd->copy()->addDay()->startOfDay();
         }
 
         return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchChunkWithRetry(ShopeeToken $token, Carbon $chunkStart, Carbon $chunkEnd): array
+    {
+        $attempts = 0;
+        $maxAttempts = 3;
+        $sleepSeconds = 5;
+
+        while (true) {
+            try {
+                return $this->fetchChunk($token, $chunkStart, $chunkEnd);
+            } catch (\Throwable $e) {
+                $attempts++;
+                $message = strtolower($e->getMessage());
+                $isRateLimit = str_contains($message, 'rate_limit') || str_contains($message, 'too many requests');
+
+                if (!$isRateLimit || $attempts >= $maxAttempts) {
+                    throw $e;
+                }
+
+                Log::warning('Shopee ads rate limit hit, retrying chunk', [
+                    'start' => $chunkStart->toDateString(),
+                    'end' => $chunkEnd->toDateString(),
+                    'attempt' => $attempts,
+                    'sleep_seconds' => $sleepSeconds,
+                    'error' => $e->getMessage(),
+                ]);
+
+                sleep($sleepSeconds);
+                $sleepSeconds = min(30, $sleepSeconds * 2);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchChunk(ShopeeToken $token, Carbon $chunkStart, Carbon $chunkEnd): array
+    {
+        try {
+            return $this->fetchProductDailyPerformance($token, $chunkStart, $chunkEnd);
+        } catch (\Throwable $e) {
+            Log::warning('Shopee ads product API failed, trying shop-level fallback', [
+                'start' => $chunkStart->toDateString(),
+                'end' => $chunkEnd->toDateString(),
+                'error' => $e->getMessage(),
+            ]);
+
+            try {
+                return $this->fetchShopDailyAsProductRows($token, $chunkStart, $chunkEnd);
+            } catch (\Throwable $e2) {
+                throw new \RuntimeException(
+                    'Ads API belum dapat diakses: ' . $e2->getMessage()
+                    . ' — pastikan permission Marketing/Ads sudah disetujui Shopee.'
+                );
+            }
+        }
     }
 
     /**
