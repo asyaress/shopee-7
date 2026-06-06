@@ -272,6 +272,7 @@ class HppViewModel @Inject constructor(
     ) {
         _uiState.update { current ->
             val products = data.products.map { product ->
+                val variants = product.variants.orEmpty()
                 HppEditorItem(
                     id = product.id,
                     name = product.name,
@@ -286,7 +287,7 @@ class HppViewModel @Inject constructor(
                     originalHppAmountInput = product.hppAmount.toDigitsInput(),
                     originalPackagingType = product.packagingType,
                     originalPackagingValueInput = product.packagingValue.toDigitsInput(),
-                    variants = product.variants.map { variant ->
+                    variants = variants.map { variant ->
                         HppEditorVariantItem(
                             id = variant.id,
                             name = variant.name,
