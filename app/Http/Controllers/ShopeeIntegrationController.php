@@ -63,18 +63,42 @@ class ShopeeIntegrationController extends Controller
         }
 
         try {
-            $appType = $this->parseAppTypeFromState((string) $request->query('state', ''));
-            $client = ShopeeClient::fromConfig($appType);
-            $data = $client->getAccessToken($code, $shopId);
+            $state = (string) $request->query('state', '');
+            foreach ($this->candidateAppTypesFromState($state) as $appType) {
+                try {
+                    $client = ShopeeClient::fromConfig($appType);
+                    $data = $client->getAccessToken($code, $shopId);
 
-            $expireIn = (int) Arr::get($data, 'expire_in', 0);
-            $obtainedAt = now();
-            $expireAt = $expireIn ? $obtainedAt->copy()->addSeconds($expireIn) : null;
+                    $expireIn = (int) Arr::get($data, 'expire_in', 0);
+                    $obtainedAt = now();
+                    $expireAt = $expireIn ? $obtainedAt->copy()->addSeconds($expireIn) : null;
 
-            $this->persistToken($shopId, $appType, $data, $obtainedAt, $expireAt, $expireIn);
+                    $this->persistToken($shopId, $appType, $data, $obtainedAt, $expireAt, $expireIn);
 
-            return redirect()->route('shopee.index')
-                ->with('success', 'Shopee ' . $this->appLabel($appType) . ' berhasil terhubung. Token tersimpan.');
+                    return redirect()->route('shopee.index')
+                        ->with('success', 'Shopee ' . $this->appLabel($appType) . ' berhasil terhubung. Token tersimpan.');
+                } catch (\Throwable $inner) {
+                    $message = strtolower($inner->getMessage());
+                    if (
+                        str_contains($message, 'partner id') ||
+                        str_contains($message, 'invalid partner') ||
+                        str_contains($message, 'error_sign') ||
+                        str_contains($message, 'wrong sign')
+                    ) {
+                        Log::warning('Shopee OAuth appType candidate failed, trying next', [
+                            'shop_id' => $shopId,
+                            'app_type' => $appType,
+                            'error' => $inner->getMessage(),
+                        ]);
+
+                        continue;
+                    }
+
+                    throw $inner;
+                }
+            }
+
+            throw new \RuntimeException('Gagal connect Shopee: aplikasi main/ads tidak cocok dengan code OAuth ini.');
         } catch (\Throwable $e) {
             Log::error('Shopee OAuth callback failed', [
                 'shop_id' => $shopId,
@@ -263,6 +287,30 @@ class ShopeeIntegrationController extends Controller
         }
 
         return $this->normalizeAppType((string) ($decoded['app_type'] ?? ShopeeToken::APP_MAIN));
+    }
+
+    /**
+     * Prefer the app_type from Shopee state, then fall back to any configured app.
+     *
+     * @return array<int, string>
+     */
+    private function candidateAppTypesFromState(string $state): array
+    {
+        $candidates = [];
+        $parsed = $this->parseAppTypeFromState($state);
+
+        foreach ([$parsed, ShopeeToken::APP_MAIN, ShopeeToken::APP_ADS] as $appType) {
+            $appType = $this->normalizeAppType($appType);
+            if (!ShopeeClient::isConfigured($appType)) {
+                continue;
+            }
+
+            if (!in_array($appType, $candidates, true)) {
+                $candidates[] = $appType;
+            }
+        }
+
+        return $candidates;
     }
 
     private function persistToken(
