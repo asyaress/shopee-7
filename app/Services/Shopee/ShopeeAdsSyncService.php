@@ -242,7 +242,12 @@ class ShopeeAdsSyncService
                 return $rows;
             }
 
-            throw new \RuntimeException('No product-level rows returned from campaign performance API.');
+            $gmsRows = $this->fetchGmsItemDailyRows($token, $chunkStart, $chunkEnd);
+            if (!empty($gmsRows)) {
+                return $gmsRows;
+            }
+
+            throw new \RuntimeException('No product-level rows returned from campaign or GMS performance API.');
         } catch (\Throwable $e) {
             Log::warning('Shopee ads product API failed, trying shop-level fallback', [
                 'start' => $chunkStart->toDateString(),
@@ -288,6 +293,98 @@ class ShopeeAdsSyncService
 
             $response = $this->client->requestPrivate('GET', $path, $body, $token);
             $rows = array_merge($rows, $this->normalizeCampaignPerformanceRows($response, $campaignItemMap));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchGmsItemDailyRows(ShopeeToken $token, Carbon $start, Carbon $end): array
+    {
+        $path = config('shopee.ads_endpoints.gms_item');
+        $rows = [];
+        $pageNo = 1;
+        $pageSize = 100;
+
+        while (true) {
+            $response = $this->client->requestPrivate('GET', $path, [
+                'period_type' => 'Day',
+                'start_date' => $start->format('Ymd'),
+                'end_date' => $end->format('Ymd'),
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ], $token);
+
+            $payload = $this->responsePayload($response);
+            $items = $this->extractList($payload, ['list', 'item_list', 'products', 'rows']);
+
+            if (empty($items)) {
+                break;
+            }
+
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $itemId = $this->normalizeItemId(Arr::get($item, 'item_id') ?? Arr::get($item, 'product_id'));
+                $dateRaw = Arr::get($item, 'date') ?? Arr::get($item, 'fetched_date_range') ?? Arr::get($item, 'report_date');
+                $date = $this->parseDate($dateRaw);
+                if ($itemId === '' || !$date) {
+                    continue;
+                }
+
+                $spend = (float) (
+                    Arr::get($item, 'expense')
+                    ?? Arr::get($item, 'spend')
+                    ?? Arr::get($item, 'cost')
+                    ?? Arr::get($item, 'ads_expense')
+                    ?? 0
+                );
+                $gmv = (float) (
+                    Arr::get($item, 'gmv')
+                    ?? Arr::get($item, 'sales')
+                    ?? Arr::get($item, 'direct_gmv')
+                    ?? 0
+                );
+                $impressions = (int) (Arr::get($item, 'impression') ?? Arr::get($item, 'impressions') ?? 0);
+                $clicks = (int) (Arr::get($item, 'clicks') ?? Arr::get($item, 'click') ?? 0);
+                $orders = (int) (Arr::get($item, 'orders') ?? Arr::get($item, 'order') ?? 0);
+                $roas = null;
+                if ($spend > 0 && $gmv > 0) {
+                    $roas = $gmv / $spend;
+                } elseif (($r = Arr::get($item, 'roi')) !== null) {
+                    $roas = (float) $r;
+                }
+
+                $rows[] = [
+                    'item_id' => $itemId,
+                    'date' => $date,
+                    'spend' => abs($spend),
+                    'impressions' => $impressions,
+                    'clicks' => $clicks,
+                    'gmv' => $gmv,
+                    'orders' => $orders,
+                    'roas' => $roas,
+                    'raw' => $item,
+                ];
+            }
+
+            $hasMore = (bool) Arr::get($payload, 'has_more', false);
+            $totalCount = (int) Arr::get($payload, 'total_count', 0);
+            $nextOffset = Arr::get($payload, 'next_offset');
+
+            if (!$hasMore && ($totalCount <= 0 || count($items) < $pageSize)) {
+                break;
+            }
+
+            if ($nextOffset === null || $nextOffset === '') {
+                $pageNo++;
+            } else {
+                $pageNo = is_numeric($nextOffset) ? ((int) $nextOffset) + 1 : ($pageNo + 1);
+            }
         }
 
         return $rows;
