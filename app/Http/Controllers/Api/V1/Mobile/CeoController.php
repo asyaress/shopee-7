@@ -263,10 +263,10 @@ class CeoController extends BaseMobileController
         try {
             $validated = $request->validate([
                 'search' => ['nullable', 'string', 'max:255'],
-                'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
             ]);
 
-            $limit = (int) ($validated['limit'] ?? 20);
+            $limit = isset($validated['limit']) ? (int) $validated['limit'] : null;
             $search = trim((string) ($validated['search'] ?? ''));
 
             $statsQuery = Product::query();
@@ -291,7 +291,7 @@ class CeoController extends BaseMobileController
                     fn (Product $product) => $product->hpp_amount !== null,
                     fn (Product $product) => strtolower((string) $product->name),
                 ])
-                ->take($limit)
+                ->when($limit !== null, fn ($collection) => $collection->take($limit))
                 ->values();
 
             $total = (clone $statsQuery)->count();
