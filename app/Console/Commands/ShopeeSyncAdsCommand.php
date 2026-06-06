@@ -66,7 +66,16 @@ class ShopeeSyncAdsCommand extends Command
 
             $start = Carbon::create((int) $year, 1, 1)->startOfDay();
             $end = Carbon::create((int) $year, 12, 31)->endOfDay();
-            $modeLabel = "Sync ads app={$token->app_type} env={$token->env} shop_id={$token->shop_id} year={$year} pause={$pause}s ...";
+            $today = Carbon::now()->endOfDay();
+            if ($end->gt($today)) {
+                $end = $today;
+            }
+
+            if ($start->gt($end)) {
+                throw new \RuntimeException("Tahun {$year} belum punya rentang tanggal yang valid untuk disync.");
+            }
+
+            $modeLabel = "Sync ads app={$token->app_type} env={$token->env} shop_id={$token->shop_id} year={$year} range={$start->toDateString()}..{$end->toDateString()} pause={$pause}s ...";
             $result = $svc->syncBetween($token, $start, $end, $pause);
 
             return [$modeLabel, $result];
