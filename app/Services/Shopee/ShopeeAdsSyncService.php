@@ -105,7 +105,7 @@ class ShopeeAdsSyncService
             'end_date' => $end->format('d-m-Y'),
         ];
 
-        $response = $this->client->requestPrivate('POST', $path, $body, $token);
+        $response = $this->client->requestPrivate('GET', $path, $body, $token);
 
         return $this->normalizeRows($response);
     }
@@ -124,7 +124,7 @@ class ShopeeAdsSyncService
             'end_date' => $end->format('d-m-Y'),
         ];
 
-        $response = $this->client->requestPrivate('POST', $path, $body, $token);
+        $response = $this->client->requestPrivate('GET', $path, $body, $token);
 
         $rows = $this->normalizeRows($response);
 

@@ -126,6 +126,7 @@ Route::middleware('simple.auth')->group(function () {
         Route::post('/disconnect/{appType}', [ShopeeIntegrationController::class, 'disconnect'])->name('disconnect.app');
         Route::post('/sync', [ShopeeIntegrationController::class, 'sync'])->name('sync');
         Route::post('/sync-products', [ShopeeIntegrationController::class, 'syncProducts'])->name('sync-products');
+        Route::post('/sync-ads', [ShopeeIntegrationController::class, 'syncAds'])->name('sync-ads');
         Route::post('/sync-all', [ShopeeIntegrationController::class, 'syncAll'])->name('sync-all');
     });
     Route::patch('/products/{product}/costs', [ProductController::class, 'updateCosts'])

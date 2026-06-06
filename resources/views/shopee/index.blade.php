@@ -80,6 +80,13 @@
                             <input type="number" name="page_size" value="100" min="1" max="100" class="hub-form-control hub-form-control-sm mt-1" {{ $mainToken ? '' : 'disabled' }}>
                             <button class="hub-btn hub-btn-outline hub-btn-sm w-100 mt-2" {{ $mainToken ? '' : 'disabled' }}>Sync</button>
                         </form>
+                        <form method="POST" action="{{ route('shopee.sync-ads') }}" class="sync-action-card">
+                            @csrf
+                            <input type="hidden" name="ads_days" value="30">
+                            <i class="fas fa-bullhorn"></i><strong>Ads</strong>
+                            <span>30 hari terakhir</span>
+                            <button class="hub-btn hub-btn-outline hub-btn-sm w-100 mt-2" {{ ($mainToken ?? null) ? '' : 'disabled' }}>Sync Ads</button>
+                        </form>
                         <form method="POST" action="{{ route('shopee.sync-all') }}" class="sync-action-card highlight">
                             @csrf
                             <i class="fas fa-rocket"></i><strong>Semua</strong>

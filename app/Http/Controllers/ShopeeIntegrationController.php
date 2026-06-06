@@ -183,6 +183,27 @@ class ShopeeIntegrationController extends Controller
             ->with('success', "Sync produk selesai. Created: {$summary['created']}, Updated: {$summary['updated']}, Processed: {$summary['processed']}");
     }
 
+    public function syncAds(Request $request): RedirectResponse
+    {
+        $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN);
+        if (!$mainToken) {
+            return redirect()->route('shopee.index')
+                ->with('error', 'Belum ada token Shopee Main App. Klik Connect dulu.');
+        }
+
+        try {
+            [$adsClient, $adsToken, $appType] = $this->resolveAdsContext((int) $mainToken->shop_id);
+            $days = max(1, min(90, (int) $request->input('ads_days', config('shopee.ads_sync_days', 30))));
+            $summary = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $days);
+        } catch (\Throwable $e) {
+            return redirect()->route('shopee.index')
+                ->with('error', 'Gagal sync ads: ' . $e->getMessage());
+        }
+
+        return redirect()->route('shopee.index')
+            ->with('success', "Sync ads selesai ({$appType}). Saved: {$summary['saved']}, Skipped: {$summary['skipped']}");
+    }
+
     public function syncAll(Request $request): RedirectResponse
     {
         $days = (int) $request->input('days', (int) config('shopee.sync_days', 7));
