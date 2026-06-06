@@ -81,6 +81,7 @@ return [
         'product_campaign_list' => '/api/v2/ads/get_product_level_campaign_id_list',
         'product_campaign_setting' => '/api/v2/ads/get_product_level_campaign_setting_info',
         'open_campaign_added_product' => '/api/v2/ams/get_open_campaign_added_product',
+        'product_performance' => '/api/v2/ams/get_product_performance',
         'product_daily' => '/api/v2/ads/get_product_campaign_daily_performance',
         'shop_daily' => '/api/v2/ads/get_all_cpc_ads_daily_performance',
         'gms_campaign' => '/api/v2/ads/get_gms_campaign_performance',

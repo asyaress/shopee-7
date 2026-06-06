@@ -237,6 +237,11 @@ class ShopeeAdsSyncService
     ): array
     {
         try {
+            $rows = $this->fetchProductPerformanceDailyRows($token, $chunkStart, $chunkEnd);
+            if (!empty($rows)) {
+                return $rows;
+            }
+
             $rows = $this->fetchProductCampaignDailyRows($token, $chunkStart, $chunkEnd, $campaignIds, $campaignItemMap);
             if (!empty($rows)) {
                 return $rows;
@@ -264,6 +269,94 @@ class ShopeeAdsSyncService
                 );
             }
         }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchProductPerformanceDailyRows(ShopeeToken $token, Carbon $chunkStart, Carbon $chunkEnd): array
+    {
+        $path = config('shopee.ads_endpoints.product_performance');
+        $rows = [];
+        $pageSize = 20;
+
+        $cursor = $chunkStart->copy()->startOfDay();
+        while ($cursor->lte($chunkEnd)) {
+            $pageNo = 1;
+            while (true) {
+                $response = $this->client->requestPrivate('GET', $path, [
+                    'period_type' => 'Day',
+                    'start_date' => $cursor->format('Ymd'),
+                    'end_date' => $cursor->format('Ymd'),
+                    'page_no' => $pageNo,
+                    'page_size' => $pageSize,
+                    'order_type' => 'ConfirmedOrder',
+                    'channel' => 'AllChannel',
+                ], $token);
+
+                $payload = $this->responsePayload($response);
+                $items = $this->extractList($payload, ['list', 'item_list', 'products', 'rows']);
+                if (empty($items)) {
+                    break;
+                }
+
+                foreach ($items as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+
+                    $itemId = $this->normalizeItemId(Arr::get($item, 'item_id') ?? Arr::get($item, 'product_id'));
+                    if ($itemId === '') {
+                        continue;
+                    }
+
+                    $spend = (float) (
+                        Arr::get($item, 'est_commission')
+                        ?? Arr::get($item, 'expense')
+                        ?? Arr::get($item, 'spend')
+                        ?? 0
+                    );
+                    $gmv = (float) (
+                        Arr::get($item, 'sales')
+                        ?? Arr::get($item, 'gmv')
+                        ?? Arr::get($item, 'direct_gmv')
+                        ?? 0
+                    );
+                    $clicks = (int) (Arr::get($item, 'clicks') ?? Arr::get($item, 'click') ?? 0);
+                    $orders = (int) (Arr::get($item, 'orders') ?? Arr::get($item, 'order') ?? 0);
+                    $roas = null;
+                    if ($spend > 0 && $gmv > 0) {
+                        $roas = $gmv / $spend;
+                    } elseif (($r = Arr::get($item, 'roi')) !== null) {
+                        $roas = (float) $r;
+                    }
+
+                    $rows[] = [
+                        'item_id' => $itemId,
+                        'date' => $cursor->toDateString(),
+                        'spend' => abs($spend),
+                        'impressions' => (int) (Arr::get($item, 'impressions') ?? Arr::get($item, 'impression') ?? 0),
+                        'clicks' => $clicks,
+                        'gmv' => $gmv,
+                        'orders' => $orders,
+                        'roas' => $roas,
+                        'raw' => $item,
+                    ];
+                }
+
+                $hasMore = (bool) Arr::get($payload, 'has_more', false);
+                $totalCount = (int) Arr::get($payload, 'total_count', 0);
+                if (!$hasMore && ($totalCount <= 0 || count($items) < $pageSize)) {
+                    break;
+                }
+
+                $pageNo++;
+            }
+
+            $cursor->addDay();
+        }
+
+        return $rows;
     }
 
     /**
