@@ -42,6 +42,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/ceo/shops', [MobileCeoController::class, 'shops']);
             Route::post('/ceo/shops/active', [MobileCeoController::class, 'setActiveShop'])->middleware('throttle:mobile-write-api');
             Route::get('/ceo/dashboard', [MobileCeoController::class, 'dashboard']);
+            Route::get('/ceo/rekap', [MobileCeoController::class, 'rekap']);
             Route::get('/ceo/targets', [MobileCeoController::class, 'targets']);
             Route::post('/ceo/targets', [MobileCeoController::class, 'saveTargets'])->middleware('throttle:mobile-write-api');
             Route::get('/ceo/hpp/priority', [MobileCeoController::class, 'hppPriority']);

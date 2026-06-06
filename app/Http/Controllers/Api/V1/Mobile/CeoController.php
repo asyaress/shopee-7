@@ -14,6 +14,7 @@ use App\Services\Mobile\MobileShopContextService;
 use App\Services\Reports\ActionCenterService;
 use App\Services\Reports\ProductProfitReportService;
 use App\Services\Reports\ProductSkuClassifier;
+use App\Services\Reports\RetailRekapService;
 use App\Support\ShopeeShopContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,7 @@ class CeoController extends BaseMobileController
         private readonly ActionCenterService $actionCenter,
         private readonly ProductProfitReportService $reportService,
         private readonly ProductSkuClassifier $classifier,
+        private readonly RetailRekapService $retailRekap,
         private readonly CeoAlertService $alerts,
         private readonly DecisionLogService $decisions,
     ) {
@@ -93,6 +95,69 @@ class CeoController extends BaseMobileController
                 'top_bleeder_products' => $this->mapProducts($actions['bleeders'] ?? []),
                 'cash_guard' => $actions['cash_guard'] ?? [],
                 'hpp_quality' => $actions['hpp_quality'] ?? [],
+            ], meta: [
+                'active_shop_id' => $shopId,
+            ]);
+        } finally {
+            ShopeeShopContext::clearForcedShopId();
+        }
+    }
+
+    public function rekap(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shopId = $this->shops->applyForRequest($user, $request);
+
+        try {
+            $validated = $request->validate([
+                'months' => ['nullable', 'integer', 'min:3', 'max:12'],
+            ]);
+
+            $requestedMonths = (int) ($validated['months'] ?? 6);
+            $rekap = $this->retailRekap->build($request, $requestedMonths);
+            $monthKeys = array_values($rekap['months'] ?? []);
+            $columns = $rekap['columns'] ?? [];
+            $targets = $rekap['targets'] ?? [];
+            $latestMonth = !empty($monthKeys) ? end($monthKeys) : null;
+            $previousMonth = count($monthKeys) > 1 ? $monthKeys[count($monthKeys) - 2] : null;
+
+            return $this->success([
+                'shop' => [
+                    'shop_id' => $shopId,
+                    'label' => ShopeeShopContext::shopLabel($shopId),
+                ],
+                'requested_months' => $requestedMonths,
+                'active_month' => $latestMonth,
+                'summary' => $this->buildRekapSummary(
+                    $latestMonth,
+                    $latestMonth ? ($columns[$latestMonth] ?? []) : [],
+                    $previousMonth ? ($columns[$previousMonth] ?? []) : [],
+                    $latestMonth ? ($targets[$latestMonth] ?? []) : [],
+                ),
+                'monthly_cards' => collect(array_reverse($monthKeys))
+                    ->map(fn (string $monthKey) => $this->buildRekapMonthCard(
+                        $monthKey,
+                        $columns[$monthKey] ?? [],
+                        $targets[$monthKey] ?? [],
+                        $monthKey === $latestMonth,
+                    ))
+                    ->values()
+                    ->all(),
+                'metric_sections' => $this->buildRekapMetricSections(
+                    $monthKeys,
+                    $columns,
+                ),
+                'best_sellers' => collect($rekap['best_sellers'] ?? [])
+                    ->map(fn (array $period, string $monthKey) => [
+                        'month' => $monthKey,
+                        'label' => $period['label'] ?? $monthKey,
+                        'products' => array_map(fn (array $product) => [
+                            'name' => (string) ($product['name'] ?? ''),
+                            'qty' => (int) ($product['qty'] ?? 0),
+                        ], $period['products'] ?? []),
+                    ])
+                    ->values()
+                    ->all(),
             ], meta: [
                 'active_shop_id' => $shopId,
             ]);
@@ -607,6 +672,173 @@ class CeoController extends BaseMobileController
         }
 
         return array_slice($items, 0, 10);
+    }
+
+    private function buildRekapSummary(?string $monthKey, array $current, array $previous, array $targets): array
+    {
+        return [
+            'month' => $monthKey,
+            'label' => $current['label'] ?? $monthKey,
+            'gross' => $current['gross'] ?? null,
+            'net_profit' => $current['net_profit'] ?? null,
+            'orders' => $current['orders'] ?? null,
+            'units' => $current['units'] ?? null,
+            'roas' => $current['roas'] ?? null,
+            'net_margin_pct' => $current['net_margin_pct'] ?? null,
+            'target_gross' => $targets['target_gross'] ?? null,
+            'target_net_profit' => $targets['target_net_profit'] ?? null,
+            'target_units' => $targets['target_units'] ?? null,
+            'ad_budget' => $targets['ad_budget'] ?? null,
+            'deltas' => [
+                [
+                    'key' => 'gross',
+                    'label' => 'Gross',
+                    'format' => 'rp',
+                    'value' => $this->deltaValue($current['gross'] ?? null, $previous['gross'] ?? null),
+                ],
+                [
+                    'key' => 'net_profit',
+                    'label' => 'Net profit',
+                    'format' => 'rp',
+                    'value' => $this->deltaValue($current['net_profit'] ?? null, $previous['net_profit'] ?? null),
+                ],
+                [
+                    'key' => 'orders',
+                    'label' => 'Orders',
+                    'format' => 'num',
+                    'value' => $this->deltaValue($current['orders'] ?? null, $previous['orders'] ?? null),
+                ],
+                [
+                    'key' => 'roas',
+                    'label' => 'ROAS',
+                    'format' => 'x',
+                    'value' => $this->deltaValue($current['roas'] ?? null, $previous['roas'] ?? null),
+                ],
+            ],
+        ];
+    }
+
+    private function buildRekapMonthCard(
+        string $monthKey,
+        array $column,
+        array $targets,
+        bool $isCurrent,
+    ): array {
+        $gross = $column['gross'] ?? null;
+        $netProfit = $column['net_profit'] ?? null;
+        $units = $column['units'] ?? null;
+        $ads = $column['ads'] ?? null;
+
+        return [
+            'month' => $monthKey,
+            'label' => $column['label'] ?? $monthKey,
+            'is_current' => $isCurrent,
+            'gross' => $gross,
+            'net_profit' => $netProfit,
+            'orders' => $column['orders'] ?? null,
+            'units' => $units,
+            'roas' => $column['roas'] ?? null,
+            'net_margin_pct' => $column['net_margin_pct'] ?? null,
+            'ads' => $ads,
+            'ads_ratio' => $column['ads_ratio'] ?? null,
+            'aov_gross' => $column['aov_gross'] ?? null,
+            'basket_size' => $column['basket_size'] ?? null,
+            'target_gross' => $targets['target_gross'] ?? null,
+            'target_net_profit' => $targets['target_net_profit'] ?? null,
+            'target_units' => $targets['target_units'] ?? null,
+            'ad_budget' => $targets['ad_budget'] ?? null,
+            'gross_progress_pct' => $this->progressValue($gross, $targets['target_gross'] ?? null),
+            'net_progress_pct' => $this->progressValue($netProfit, $targets['target_net_profit'] ?? null),
+            'units_progress_pct' => $this->progressValue($units, $targets['target_units'] ?? null),
+            'ads_budget_used_pct' => $this->progressValue($ads, $targets['ad_budget'] ?? null),
+        ];
+    }
+
+    private function buildRekapMetricSections(array $monthKeys, array $columns): array
+    {
+        $groups = [
+            [
+                'key' => 'profitability',
+                'title' => 'Profitability',
+                'subtitle' => 'Pendapatan, laba, dan margin per bulan.',
+                'metrics' => [
+                    ['key' => 'gross', 'label' => 'Total pendapatan', 'format' => 'rp'],
+                    ['key' => 'net', 'label' => 'Total penghasilan net', 'format' => 'rp'],
+                    ['key' => 'gross_profit', 'label' => 'Laba kotor', 'format' => 'rp'],
+                    ['key' => 'net_profit', 'label' => 'Laba bersih', 'format' => 'rp'],
+                    ['key' => 'gross_margin_pct', 'label' => 'Gross margin', 'format' => 'pct'],
+                    ['key' => 'net_margin_pct', 'label' => 'Net margin', 'format' => 'pct'],
+                ],
+            ],
+            [
+                'key' => 'efficiency',
+                'title' => 'Efficiency',
+                'subtitle' => 'Biaya, rasio, dan efektivitas iklan.',
+                'metrics' => [
+                    ['key' => 'fee_total', 'label' => 'Admin & layanan', 'format' => 'rp'],
+                    ['key' => 'fee_ratio', 'label' => 'Rasio admin', 'format' => 'pct'],
+                    ['key' => 'operational', 'label' => 'Operasional', 'format' => 'rp'],
+                    ['key' => 'operational_ratio', 'label' => 'Rasio operasional', 'format' => 'pct'],
+                    ['key' => 'ads', 'label' => 'Iklan', 'format' => 'rp'],
+                    ['key' => 'ads_ratio', 'label' => 'Rasio iklan', 'format' => 'pct'],
+                    ['key' => 'roas', 'label' => 'ROAS', 'format' => 'x'],
+                    ['key' => 'acos', 'label' => 'ACOS', 'format' => 'pct'],
+                ],
+            ],
+            [
+                'key' => 'demand',
+                'title' => 'Demand',
+                'subtitle' => 'Pesanan, unit, dan kualitas keranjang belanja.',
+                'metrics' => [
+                    ['key' => 'orders', 'label' => 'Orders', 'format' => 'num'],
+                    ['key' => 'units', 'label' => 'Units sold', 'format' => 'num'],
+                    ['key' => 'aov_gross', 'label' => 'AOV kotor', 'format' => 'rp'],
+                    ['key' => 'basket_size', 'label' => 'Basket size', 'format' => 'num'],
+                ],
+            ],
+        ];
+
+        return array_map(function (array $group) use ($monthKeys, $columns): array {
+            return [
+                'key' => $group['key'],
+                'title' => $group['title'],
+                'subtitle' => $group['subtitle'],
+                'rows' => array_map(function (array $metric) use ($monthKeys, $columns): array {
+                    return [
+                        'key' => $metric['key'],
+                        'label' => $metric['label'],
+                        'format' => $metric['format'],
+                        'points' => array_map(function (string $monthKey) use ($columns, $metric): array {
+                            $column = $columns[$monthKey] ?? [];
+
+                            return [
+                                'month' => $monthKey,
+                                'label' => $column['short'] ?? $monthKey,
+                                'value' => $column[$metric['key']] ?? null,
+                            ];
+                        }, $monthKeys),
+                    ];
+                }, $group['metrics']),
+            ];
+        }, $groups);
+    }
+
+    private function deltaValue(mixed $current, mixed $previous): ?float
+    {
+        if (!is_numeric($current) || !is_numeric($previous)) {
+            return null;
+        }
+
+        return round((float) $current - (float) $previous, 4);
+    }
+
+    private function progressValue(mixed $actual, mixed $target): ?float
+    {
+        if (!is_numeric($actual) || !is_numeric($target) || (float) $target <= 0.0) {
+            return null;
+        }
+
+        return round((float) $actual / (float) $target, 4);
     }
 
     private function priorityProductIds(Request $request): array

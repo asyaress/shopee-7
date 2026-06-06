@@ -147,6 +147,29 @@ class MobileCeoApiTest extends TestCase
         ]);
     }
 
+    public function test_mobile_ceo_can_fetch_mobile_rekap(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ceo@example.com',
+        ]);
+
+        $this->seedDashboardData(shopId: 2001, gross: 100000, net: 90000, hpp: 40000, ads: 10000, operational: 5000);
+
+        Sanctum::actingAs($user, ['mobile:ceo']);
+
+        $response = $this->getJson('/api/v1/mobile/ceo/rekap?months=3');
+
+        $response->assertOk()
+            ->assertJsonPath('data.shop.shop_id', 2001)
+            ->assertJsonPath('data.requested_months', 3)
+            ->assertJsonPath('data.summary.month', now()->format('Y-m'))
+            ->assertJsonCount(3, 'data.monthly_cards');
+
+        $this->assertNotEmpty($response->json('data.metric_sections'));
+        $this->assertNotEmpty($response->json('data.best_sellers'));
+        $this->assertSame(now()->format('Y-m'), $response->json('data.monthly_cards.0.month'));
+    }
+
     public function test_mobile_ceo_can_fetch_and_save_quick_hpp(): void
     {
         $user = User::factory()->create([
