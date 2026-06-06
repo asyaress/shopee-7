@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ShopeeIntegrationController extends Controller
 {
@@ -55,33 +57,60 @@ class ShopeeIntegrationController extends Controller
                 ->with('error', 'Callback dari Shopee tidak lengkap (code/shop_id kosong).');
         }
 
-        $appType = $this->parseAppTypeFromState((string) $request->query('state', ''));
-        $client = ShopeeClient::fromConfig($appType);
-        $data = $client->getAccessToken($code, $shopId);
+        if (!Schema::hasColumn('shopee_tokens', 'app_type')) {
+            return redirect()->route('shopee.index')
+                ->with('error', 'Database belum update. Jalankan: php artisan migrate --force lalu Connect ulang.');
+        }
 
-        $expireIn = (int) Arr::get($data, 'expire_in', 0);
-        $obtainedAt = now();
-        $expireAt = $expireIn ? $obtainedAt->copy()->addSeconds($expireIn) : null;
+        try {
+            $appType = $this->parseAppTypeFromState((string) $request->query('state', ''));
+            $client = ShopeeClient::fromConfig($appType);
+            $data = $client->getAccessToken($code, $shopId);
 
-        ShopeeToken::updateOrCreate(
-            [
-                'env' => config('shopee.env', 'test'),
+            $expireIn = (int) Arr::get($data, 'expire_in', 0);
+            $obtainedAt = now();
+            $expireAt = $expireIn ? $obtainedAt->copy()->addSeconds($expireIn) : null;
+
+            $this->persistToken($shopId, $appType, $data, $obtainedAt, $expireAt, $expireIn);
+
+            return redirect()->route('shopee.index')
+                ->with('success', 'Shopee ' . $this->appLabel($appType) . ' berhasil terhubung. Token tersimpan.');
+        } catch (\Throwable $e) {
+            Log::error('Shopee OAuth callback failed', [
                 'shop_id' => $shopId,
-                'app_type' => $appType,
-            ],
-            [
-                'partner_id' => (int) (config("shopee.apps.{$appType}.partner_id") ?: config('shopee.partner_id')),
-                'access_token' => (string) Arr::get($data, 'access_token', ''),
-                'refresh_token' => (string) Arr::get($data, 'refresh_token', ''),
-                'expire_in' => $expireIn ?: null,
-                'obtained_at' => $obtainedAt,
-                'expire_at' => $expireAt,
-                'raw' => $data,
-            ]
-        );
+                'error' => $e->getMessage(),
+            ]);
 
-        return redirect()->route('manage.index')
-            ->with('success', 'Shopee ' . $this->appLabel($appType) . ' berhasil terhubung. Token tersimpan.');
+            return redirect()->route('shopee.index')
+                ->with('error', 'Gagal connect Shopee: ' . $e->getMessage());
+        }
+    }
+
+    public function disconnect(Request $request, string $appType = ShopeeToken::APP_MAIN): RedirectResponse
+    {
+        $appType = $this->normalizeAppType($appType);
+        $env = config('shopee.env', 'test');
+        $shopId = (int) ($request->input('shop_id') ?: \App\Support\ShopeeShopContext::shopId() ?: config('shopee.shop_id'));
+
+        $query = ShopeeToken::query()->where('env', $env);
+
+        if ($shopId > 0) {
+            $query->where('shop_id', $shopId);
+        }
+
+        if (Schema::hasColumn('shopee_tokens', 'app_type')) {
+            $query->forApp($appType);
+        }
+
+        $deleted = $query->delete();
+
+        if ($deleted === 0) {
+            return redirect()->route('shopee.index')
+                ->with('error', 'Tidak ada koneksi ' . $this->appLabel($appType) . ' yang bisa diputus.');
+        }
+
+        return redirect()->route('shopee.index')
+            ->with('success', 'Koneksi ' . $this->appLabel($appType) . ' diputus. Klik Connect untuk hubungkan ulang.');
     }
 
     public function sync(Request $request): RedirectResponse
@@ -234,6 +263,40 @@ class ShopeeIntegrationController extends Controller
         }
 
         return $this->normalizeAppType((string) ($decoded['app_type'] ?? ShopeeToken::APP_MAIN));
+    }
+
+    private function persistToken(
+        int $shopId,
+        string $appType,
+        array $data,
+        \Illuminate\Support\Carbon $obtainedAt,
+        ?\Illuminate\Support\Carbon $expireAt,
+        int $expireIn,
+    ): void {
+        $keys = [
+            'env' => config('shopee.env', 'test'),
+            'shop_id' => $shopId,
+        ];
+
+        if (Schema::hasColumn('shopee_tokens', 'app_type')) {
+            $keys['app_type'] = $appType;
+        }
+
+        $values = [
+            'partner_id' => (int) (config("shopee.apps.{$appType}.partner_id") ?: config('shopee.partner_id')),
+            'access_token' => (string) Arr::get($data, 'access_token', ''),
+            'refresh_token' => (string) Arr::get($data, 'refresh_token', ''),
+            'expire_in' => $expireIn ?: null,
+            'obtained_at' => $obtainedAt,
+            'expire_at' => $expireAt,
+            'raw' => $data,
+        ];
+
+        if (Schema::hasColumn('shopee_tokens', 'app_type')) {
+            $values['app_type'] = $appType;
+        }
+
+        ShopeeToken::updateOrCreate($keys, $values);
     }
 
 public function debugAuthVariants()

@@ -38,6 +38,20 @@
                         @endif
                     </table>
                     <p class="small text-muted mt-2 mb-0">Disimpan di tabel <code>shopee_tokens</code>.</p>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <form method="POST" action="{{ route('shopee.disconnect') }}" onsubmit="return confirm('Putus koneksi Main App? Anda bisa Connect ulang setelah ini.');">
+                            @csrf
+                            <input type="hidden" name="shop_id" value="{{ $mainToken->shop_id }}">
+                            <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm text-danger"><i class="fas fa-unlink"></i> Putus Main App</button>
+                        </form>
+                        @if(($adsToken ?? null))
+                        <form method="POST" action="{{ route('shopee.disconnect.app', ['appType' => 'ads']) }}" onsubmit="return confirm('Putus koneksi Ads App?');">
+                            @csrf
+                            <input type="hidden" name="shop_id" value="{{ $adsToken->shop_id }}">
+                            <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm text-danger"><i class="fas fa-unlink"></i> Putus Ads App</button>
+                        </form>
+                        @endif
+                    </div>
                     @else
                     <div class="report-insight warning mb-0">
                         <div class="icon"><i class="fas fa-unlink"></i></div>
@@ -74,7 +88,13 @@
                         </form>
                     </div>
                     @if($adsConfigured ?? false)
-                    <p class="small text-muted mt-2 mb-0">Jika env Ads sudah diisi, klik <strong>Connect Ads App</strong> sekali agar data iklan bisa ditarik.</p>
+                    <div class="report-insight info mt-2 mb-0">
+                        <div class="icon"><i class="fas fa-bullhorn"></i></div>
+                        <div>
+                            <strong>Ads App terpisah</strong>
+                            <p class="mb-0 small">Main App untuk order/produk. Ads App butuh app Shopee kategori <em>Ads Service</em> + credential <code>SHOPEE_ADS_*</code> di .env. Klik <strong>Connect Ads App</strong> sekali. Kalau gagal/rate limit, putus koneksi lalu connect ulang.</p>
+                        </div>
+                    </div>
                     @endif
                 </div>
             </div>

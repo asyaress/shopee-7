@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class ShopeeToken extends Model
 {
@@ -32,6 +33,10 @@ class ShopeeToken extends Model
 
     public function scopeForApp($query, string $appType = self::APP_MAIN)
     {
+        if (!Schema::hasColumn($this->getTable(), 'app_type')) {
+            return $appType === self::APP_ADS ? $query->whereRaw('1 = 0') : $query;
+        }
+
         return $query->where('app_type', $appType);
     }
 
