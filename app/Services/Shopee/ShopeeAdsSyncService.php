@@ -314,6 +314,7 @@ class ShopeeAdsSyncService
             $items = $this->extractList($payload, [
                 'campaign_list',
                 'campaigns',
+                'item_list',
                 'list',
                 'items',
             ]);
@@ -433,7 +434,7 @@ class ShopeeAdsSyncService
 
             $response = $this->client->requestPrivate('GET', $path, $params, $token);
             $payload = $this->responsePayload($response);
-            $items = $this->extractList($payload, ['item_list', 'products', 'list', 'items']);
+            $items = $this->extractList($payload, ['item_list', 'products', 'product_list', 'list', 'items']);
 
             foreach ($items as $item) {
                 if (!is_array($item)) {
@@ -473,6 +474,9 @@ class ShopeeAdsSyncService
             'product_campaign_list',
             'performance_list',
             'daily_performance_list',
+            'item_list',
+            'product_list',
+            'products',
             'list',
             'rows',
         ]);
@@ -487,7 +491,10 @@ class ShopeeAdsSyncService
             $dateRaw = Arr::get($item, 'date')
                 ?? Arr::get($item, 'report_date')
                 ?? Arr::get($item, 'stat_date')
-                ?? Arr::get($item, 'day');
+                ?? Arr::get($item, 'day')
+                ?? Arr::get($item, 'fetched_date_range')
+                ?? Arr::get($item, 'period_end_time')
+                ?? Arr::get($item, 'period_start_time');
 
             $date = $this->parseDate($dateRaw);
             if (!$date) {
@@ -802,6 +809,22 @@ class ShopeeAdsSyncService
         }
 
         $str = (string) $value;
+
+        if (preg_match('/^(\d{8})-(\d{8})$/', $str, $m)) {
+            try {
+                return Carbon::createFromFormat('Ymd', $m[2])->toDateString();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        if (preg_match('/^\d{8}$/', $str)) {
+            try {
+                return Carbon::createFromFormat('Ymd', $str)->toDateString();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
 
         foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'Y/m/d'] as $fmt) {
             try {
