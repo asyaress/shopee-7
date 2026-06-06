@@ -6,6 +6,7 @@ use App\Models\BusinessDecisionLog;
 use App\Models\CeoAlertLog;
 use App\Models\MobileAlertRead;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopMonthlyCost;
 use App\Services\Ceo\CeoAlertService;
 use App\Services\Ceo\DecisionLogService;
@@ -274,7 +275,11 @@ class CeoController extends BaseMobileController
 
             $priorityIds = $this->priorityProductIds($request);
 
-            $query = Product::query()->orderBy('name');
+            $query = Product::query()
+                ->with(['variants' => fn ($builder) => $builder
+                    ->select('id', 'product_id', 'name', 'sku', 'price', 'hpp_amount', 'packaging_type', 'packaging_value')
+                    ->orderBy('name')])
+                ->orderBy('name');
             ShopeeShopContext::scopeProducts($query);
 
             if ($search !== '') {
@@ -294,8 +299,11 @@ class CeoController extends BaseMobileController
                 ->when($limit !== null, fn ($collection) => $collection->take($limit))
                 ->values();
 
-            $total = (clone $statsQuery)->count();
-            $withHpp = (clone $statsQuery)->whereNotNull('hpp_amount')->count();
+            $statsProducts = (clone $statsQuery)
+                ->with(['variants:id,product_id,hpp_amount'])
+                ->get();
+            $total = $statsProducts->count();
+            $withHpp = $statsProducts->filter(fn (Product $product) => $this->productHasVariantAwareHpp($product))->count();
 
             return $this->success([
                 'shop' => [
@@ -317,8 +325,27 @@ class CeoController extends BaseMobileController
                     'hpp_amount' => $this->toIntOrNull($product->hpp_amount),
                     'packaging_type' => $product->packaging_type ?: 'fixed',
                     'packaging_value' => $this->toIntOrNull($product->packaging_value),
-                    'missing_hpp' => $product->hpp_amount === null,
+                    'missing_hpp' => !$this->productHasVariantAwareHpp($product),
                     'is_priority' => in_array($product->id, $priorityIds, true),
+                    'variant_count' => $product->variants->count(),
+                    'variant_override_count' => $product->variants->filter(fn (ProductVariant $variant) => $variant->hpp_amount !== null)->count(),
+                    'variants' => $product->variants->map(fn (ProductVariant $variant) => [
+                        'id' => $variant->id,
+                        'name' => $variant->name,
+                        'sku' => $variant->sku,
+                        'base_price' => $this->toIntOrNull($variant->price),
+                        'hpp_amount' => $this->toIntOrNull($variant->hpp_amount),
+                        'packaging_type' => $variant->packaging_type,
+                        'packaging_value' => $this->toIntOrNull($variant->packaging_value),
+                        'effective_hpp_amount' => $this->toIntOrNull($variant->hpp_amount ?? $product->hpp_amount),
+                        'effective_packaging_type' => $variant->packaging_type ?: ($product->packaging_type ?: 'fixed'),
+                        'effective_packaging_value' => $this->toIntOrNull($variant->packaging_value ?? $product->packaging_value),
+                        'inherits_product' => $variant->hpp_amount === null
+                            && $variant->packaging_type === null
+                            && $variant->packaging_value === null,
+                        'missing_hpp' => $variant->hpp_amount === null,
+                        'effective_missing_hpp' => ($variant->hpp_amount ?? $product->hpp_amount) === null,
+                    ])->values()->all(),
                 ])->all(),
             ], meta: [
                 'active_shop_id' => $shopId,
@@ -340,6 +367,11 @@ class CeoController extends BaseMobileController
                 'products.*.hpp_amount' => ['nullable', 'numeric', 'min:0'],
                 'products.*.packaging_type' => ['nullable', 'in:fixed,percent'],
                 'products.*.packaging_value' => ['nullable', 'numeric', 'min:0'],
+                'products.*.variants' => ['nullable', 'array'],
+                'products.*.variants.*.id' => ['required', 'integer', 'exists:product_variants,id'],
+                'products.*.variants.*.hpp_amount' => ['nullable', 'numeric', 'min:0'],
+                'products.*.variants.*.packaging_type' => ['nullable', 'in:fixed,percent'],
+                'products.*.variants.*.packaging_value' => ['nullable', 'numeric', 'min:0'],
             ]);
 
             $productIds = collect($validated['products'])->pluck('id')->all();
@@ -352,6 +384,7 @@ class CeoController extends BaseMobileController
             $allowedIds = $scopedProducts->pluck('id')->all();
 
             $updated = 0;
+            $updatedVariants = 0;
 
             foreach ($validated['products'] as $row) {
                 if (!in_array($row['id'], $allowedIds, true)) {
@@ -364,11 +397,44 @@ class CeoController extends BaseMobileController
                     continue;
                 }
 
+                $productHpp = $row['hpp_amount'] ?? null;
+                $productPackagingType = $row['packaging_type'] ?? 'fixed';
+                $productPackagingValue = $row['packaging_value'] ?? null;
+
                 $product->update([
-                    'hpp_amount' => $row['hpp_amount'] !== '' && $row['hpp_amount'] !== null ? $row['hpp_amount'] : null,
-                    'packaging_type' => $row['packaging_type'] ?? 'fixed',
-                    'packaging_value' => $row['packaging_value'] !== '' && $row['packaging_value'] !== null ? $row['packaging_value'] : null,
+                    'hpp_amount' => $productHpp !== '' && $productHpp !== null ? $productHpp : null,
+                    'packaging_type' => $productPackagingType,
+                    'packaging_value' => $productPackagingValue !== '' && $productPackagingValue !== null ? $productPackagingValue : null,
                 ]);
+
+                $variantInputs = collect($row['variants'] ?? []);
+                if ($variantInputs->isNotEmpty()) {
+                    $variants = ProductVariant::query()
+                        ->where('product_id', $product->id)
+                        ->whereIn('id', $variantInputs->pluck('id'))
+                        ->get()
+                        ->keyBy('id');
+
+                    foreach ($variantInputs as $variantRow) {
+                        /** @var ProductVariant|null $variant */
+                        $variant = $variants->get($variantRow['id']);
+                        if (!$variant) {
+                            continue;
+                        }
+
+                        $variantHpp = $variantRow['hpp_amount'] ?? null;
+                        $variantPackagingType = $variantRow['packaging_type'] ?? null;
+                        $variantPackagingValue = $variantRow['packaging_value'] ?? null;
+
+                        $variant->update([
+                            'hpp_amount' => $variantHpp !== '' && $variantHpp !== null ? $variantHpp : null,
+                            'packaging_type' => $variantPackagingType !== '' ? $variantPackagingType : null,
+                            'packaging_value' => $variantPackagingValue !== '' && $variantPackagingValue !== null ? $variantPackagingValue : null,
+                        ]);
+
+                        $updatedVariants++;
+                    }
+                }
 
                 $updated++;
             }
@@ -376,6 +442,7 @@ class CeoController extends BaseMobileController
             return $this->success([
                 'message' => 'Quick HPP berhasil disimpan.',
                 'updated_count' => $updated,
+                'updated_variant_count' => $updatedVariants,
             ], meta: [
                 'active_shop_id' => $shopId,
             ]);
@@ -869,5 +936,14 @@ class CeoController extends BaseMobileController
         }
 
         return (int) round((float) $value);
+    }
+
+    private function productHasVariantAwareHpp(Product $product): bool
+    {
+        if ($product->variants->isNotEmpty()) {
+            return $product->variants->contains(fn (ProductVariant $variant) => $variant->hpp_amount !== null);
+        }
+
+        return $product->hpp_amount !== null;
     }
 }

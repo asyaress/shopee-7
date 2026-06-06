@@ -5,13 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.toedjoe.android7.data.remote.HppPriorityData
 import com.toedjoe.android7.data.remote.HppPrioritySummary
 import com.toedjoe.android7.data.remote.SaveHppProductInput
+import com.toedjoe.android7.data.remote.SaveHppVariantInput
 import com.toedjoe.android7.data.repository.PlanningRepository
 import com.toedjoe.android7.support.SessionCoordinator
 import com.toedjoe.android7.support.toAppUiError
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +23,25 @@ enum class HppQuickFilter(val label: String) {
     Ready("Ready"),
     All("All"),
 }
+
+data class HppEditorVariantItem(
+    val id: Int,
+    val name: String,
+    val sku: String = "-",
+    val basePrice: Int? = null,
+    val hppAmountInput: String = "",
+    val packagingType: String? = null,
+    val packagingValueInput: String = "",
+    val originalHppAmountInput: String = "",
+    val originalPackagingType: String? = null,
+    val originalPackagingValueInput: String = "",
+    val effectiveHppAmount: Int? = null,
+    val effectivePackagingType: String = "fixed",
+    val effectivePackagingValue: Int? = null,
+    val inheritsProduct: Boolean = true,
+    val missingHpp: Boolean = false,
+    val effectiveMissingHpp: Boolean = false,
+)
 
 data class HppEditorItem(
     val id: Int,
@@ -40,6 +57,7 @@ data class HppEditorItem(
     val originalHppAmountInput: String = "",
     val originalPackagingType: String = "fixed",
     val originalPackagingValueInput: String = "",
+    val variants: List<HppEditorVariantItem> = emptyList(),
 )
 
 data class HppUiState(
@@ -110,18 +128,49 @@ class HppViewModel @Inject constructor(
     }
 
     fun updateHppAmount(id: Int, value: String) = updateProduct(id) {
-        it.copy(hppAmountInput = value.toNominalInput())
+        it.copy(hppAmountInput = value.toDigitsInput())
     }
 
     fun updatePackagingType(id: Int, value: String) = updateProduct(id) {
         it.copy(
             packagingType = value,
-            packagingValueInput = it.packagingValueInput.reformatByPackagingType(value),
+            packagingValueInput = it.packagingValueInput.toDigitsInput(),
         )
     }
 
     fun updatePackagingValue(id: Int, value: String) = updateProduct(id) {
-        it.copy(packagingValueInput = value.reformatByPackagingType(it.packagingType))
+        it.copy(packagingValueInput = value.toDigitsInput())
+    }
+
+    fun updateVariantHppAmount(productId: Int, variantId: Int, value: String) = updateProduct(productId) { product ->
+        product.copy(
+            variants = product.variants.map { variant ->
+                if (variant.id == variantId) variant.copy(hppAmountInput = value.toDigitsInput()) else variant
+            },
+        )
+    }
+
+    fun updateVariantPackagingType(productId: Int, variantId: Int, value: String?) = updateProduct(productId) { product ->
+        product.copy(
+            variants = product.variants.map { variant ->
+                if (variant.id != variantId) {
+                    variant
+                } else {
+                    variant.copy(
+                        packagingType = value,
+                        packagingValueInput = if (value == null) "" else variant.packagingValueInput.toDigitsInput(),
+                    )
+                }
+            },
+        )
+    }
+
+    fun updateVariantPackagingValue(productId: Int, variantId: Int, value: String) = updateProduct(productId) { product ->
+        product.copy(
+            variants = product.variants.map { variant ->
+                if (variant.id == variantId) variant.copy(packagingValueInput = value.toDigitsInput()) else variant
+            },
+        )
     }
 
     fun saveSelected() {
@@ -136,12 +185,13 @@ class HppViewModel @Inject constructor(
         val snapshot = _uiState.value
         val selected = snapshot.selectedProduct ?: return
         val payload = selected.toSaveInputOrNull()
+        val nextSelectedId = if (moveNext) nextProductId(snapshot) else selected.id
 
         if (payload == null) {
             _uiState.update {
                 it.copy(
                     successMessage = "Belum ada perubahan untuk disimpan.",
-                    selectedProductId = if (moveNext) nextProductId(it) else it.selectedProductId,
+                    selectedProductId = if (moveNext) nextSelectedId else it.selectedProductId,
                     error = null,
                 )
             }
@@ -152,36 +202,19 @@ class HppViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null, successMessage = null) }
 
             runCatching {
-                planningRepository.saveHpp(listOf(payload))
-            }.onSuccess { result ->
-                _uiState.update { current ->
-                    val before = current.products.firstOrNull { it.id == selected.id } ?: selected
-                    val updatedProducts = current.products.map { item ->
-                        if (item.id != selected.id) {
-                            item
-                        } else {
-                            item.copy(
-                                missingHpp = item.hppAmountInput.toIntField() == null,
-                                originalHppAmountInput = item.hppAmountInput,
-                                originalPackagingType = item.packagingType,
-                                originalPackagingValueInput = item.packagingValueInput,
-                            )
-                        }
-                    }
-                    val after = updatedProducts.firstOrNull { it.id == selected.id } ?: before
-                    val nextId = if (moveNext) nextProductId(
-                        current.copy(products = updatedProducts, selectedProductId = selected.id),
-                    ) else selected.id
-
-                    current.copy(
-                        isSaving = false,
-                        error = null,
-                        successMessage = result.message,
-                        products = updatedProducts,
-                        summary = current.summary.updatedWith(before = before, after = after),
-                        selectedProductId = nextId,
-                    )
-                }
+                val saveResult = planningRepository.saveHpp(listOf(payload))
+                val refreshed = planningRepository.hppPriority(
+                    search = _uiState.value.searchQuery.trim(),
+                    month = null,
+                    limit = null,
+                )
+                saveResult.message to refreshed
+            }.onSuccess { (message, refreshed) ->
+                applyHppData(
+                    data = refreshed,
+                    successMessage = message,
+                    selectedProductId = nextSelectedId,
+                )
             }.onFailure { throwable ->
                 val error = throwable.toAppUiError("Terjadi kesalahan saat menyimpan Quick HPP.")
                 viewModelScope.launch { sessionCoordinator.handle(error) }
@@ -195,7 +228,7 @@ class HppViewModel @Inject constructor(
         }
     }
 
-    private fun loadProducts(successMessage: String? = null) {
+    private fun loadProducts(successMessage: String? = null, selectedProductId: Int? = _uiState.value.selectedProductId) {
         val snapshot = _uiState.value
         viewModelScope.launch {
             _uiState.update {
@@ -213,7 +246,11 @@ class HppViewModel @Inject constructor(
                     limit = null,
                 )
             }.onSuccess { data ->
-                applyHppData(data, successMessage = successMessage)
+                applyHppData(
+                    data = data,
+                    successMessage = successMessage,
+                    selectedProductId = selectedProductId,
+                )
             }.onFailure { throwable ->
                 val error = throwable.toAppUiError("Terjadi kesalahan saat memuat Quick HPP.")
                 viewModelScope.launch { sessionCoordinator.handle(error) }
@@ -231,6 +268,7 @@ class HppViewModel @Inject constructor(
     private fun applyHppData(
         data: HppPriorityData,
         successMessage: String? = null,
+        selectedProductId: Int? = null,
     ) {
         _uiState.update { current ->
             val products = data.products.map { product ->
@@ -242,12 +280,32 @@ class HppViewModel @Inject constructor(
                     basePrice = product.basePrice,
                     isPriority = product.isPriority,
                     missingHpp = product.missingHpp,
-                    hppAmountInput = product.hppAmount.toNominalInput(),
+                    hppAmountInput = product.hppAmount.toDigitsInput(),
                     packagingType = product.packagingType,
-                    packagingValueInput = product.packagingValue.toPackagingInput(product.packagingType),
-                    originalHppAmountInput = product.hppAmount.toNominalInput(),
+                    packagingValueInput = product.packagingValue.toDigitsInput(),
+                    originalHppAmountInput = product.hppAmount.toDigitsInput(),
                     originalPackagingType = product.packagingType,
-                    originalPackagingValueInput = product.packagingValue.toPackagingInput(product.packagingType),
+                    originalPackagingValueInput = product.packagingValue.toDigitsInput(),
+                    variants = product.variants.map { variant ->
+                        HppEditorVariantItem(
+                            id = variant.id,
+                            name = variant.name,
+                            sku = variant.sku.orEmpty().ifBlank { "-" },
+                            basePrice = variant.basePrice,
+                            hppAmountInput = variant.hppAmount.toDigitsInput(),
+                            packagingType = variant.packagingType,
+                            packagingValueInput = variant.packagingValue.toDigitsInput(),
+                            originalHppAmountInput = variant.hppAmount.toDigitsInput(),
+                            originalPackagingType = variant.packagingType,
+                            originalPackagingValueInput = variant.packagingValue.toDigitsInput(),
+                            effectiveHppAmount = variant.effectiveHppAmount,
+                            effectivePackagingType = variant.effectivePackagingType,
+                            effectivePackagingValue = variant.effectivePackagingValue,
+                            inheritsProduct = variant.inheritsProduct,
+                            missingHpp = variant.missingHpp,
+                            effectiveMissingHpp = variant.effectiveMissingHpp,
+                        )
+                    },
                 )
             }
 
@@ -259,7 +317,7 @@ class HppViewModel @Inject constructor(
                 shopLabel = data.shop.label,
                 summary = data.summary,
                 products = products,
-                selectedProductId = current.selectedProductId?.takeIf { id -> products.any { it.id == id } },
+                selectedProductId = selectedProductId?.takeIf { id -> products.any { it.id == id } },
             )
         }
     }
@@ -308,6 +366,13 @@ private fun nextProductId(state: HppUiState): Int? {
 fun HppEditorItem.hasChanges(): Boolean {
     return hppAmountInput.toIntField() != originalHppAmountInput.toIntField() ||
         packagingValueInput.toIntField() != originalPackagingValueInput.toIntField() ||
+        packagingType != originalPackagingType ||
+        variants.any { it.hasChanges() }
+}
+
+private fun HppEditorVariantItem.hasChanges(): Boolean {
+    return hppAmountInput.toIntField() != originalHppAmountInput.toIntField() ||
+        packagingValueInput.toIntField() != originalPackagingValueInput.toIntField() ||
         packagingType != originalPackagingType
 }
 
@@ -316,35 +381,31 @@ private fun HppEditorItem.toSaveInputOrNull(): SaveHppProductInput? {
     val currentPackagingValue = packagingValueInput.toIntField()
     val currentPackagingType = packagingType
 
-    val isChanged = currentHpp != originalHppAmountInput.toIntField() ||
+    val productChanged = currentHpp != originalHppAmountInput.toIntField() ||
         currentPackagingValue != originalPackagingValueInput.toIntField() ||
         currentPackagingType != originalPackagingType
 
-    if (!isChanged) return null
+    val variantPayloads = variants.mapNotNull { variant ->
+        if (!variant.hasChanges()) {
+            null
+        } else {
+            SaveHppVariantInput(
+                id = variant.id,
+                hppAmount = variant.hppAmountInput.toIntField(),
+                packagingType = variant.packagingType,
+                packagingValue = variant.packagingValueInput.toIntField(),
+            )
+        }
+    }
+
+    if (!productChanged && variantPayloads.isEmpty()) return null
 
     return SaveHppProductInput(
         id = id,
         hppAmount = currentHpp,
         packagingType = currentPackagingType,
         packagingValue = currentPackagingValue,
-    )
-}
-
-private fun HppPrioritySummary.updatedWith(
-    before: HppEditorItem,
-    after: HppEditorItem,
-): HppPrioritySummary {
-    val beforeMissing = before.hppAmountInput.toIntField() == null
-    val afterMissing = after.hppAmountInput.toIntField() == null
-    if (beforeMissing == afterMissing) return this
-
-    val nextWithHpp = if (afterMissing) (withHpp - 1).coerceAtLeast(0) else withHpp + 1
-    val nextMissing = if (afterMissing) missing + 1 else (missing - 1).coerceAtLeast(0)
-
-    return copy(
-        withHpp = nextWithHpp,
-        missing = nextMissing,
-        completePct = if (total > 0) nextWithHpp.toDouble() / total.toDouble() else completePct,
+        variants = variantPayloads,
     )
 }
 
@@ -353,33 +414,6 @@ private fun String.toIntField(): Int? {
     return digits.toIntOrNull()
 }
 
-private fun String.toNominalInput(): String = toIntField().formatNominalInput()
+private fun String.toDigitsInput(): String = replace(Regex("[^0-9]"), "")
 
-private fun String.reformatByPackagingType(type: String): String {
-    return when (type) {
-        "percent" -> toIntField()?.toString().orEmpty()
-        else -> toIntField().formatNominalInput()
-    }
-}
-
-private fun Int?.toNominalInput(): String = formatNominalInput()
-
-private fun Int?.toPackagingInput(type: String): String {
-    return when (type) {
-        "percent" -> this?.toString().orEmpty()
-        else -> formatNominalInput()
-    }
-}
-
-private fun Int?.formatNominalInput(): String {
-    val value = this ?: return ""
-    return integerInputFormatter.format(value)
-}
-
-private val integerInputFormatter = DecimalFormat(
-    "#,###",
-    DecimalFormatSymbols(Locale.forLanguageTag("id-ID")).apply {
-        groupingSeparator = '.'
-        decimalSeparator = ','
-    },
-)
+private fun Int?.toDigitsInput(): String = this?.toString().orEmpty()

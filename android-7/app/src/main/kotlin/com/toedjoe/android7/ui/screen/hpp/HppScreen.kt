@@ -1,6 +1,5 @@
 package com.toedjoe.android7.ui.screen.hpp
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -15,10 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,8 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,6 +87,15 @@ fun HppScreen(
                 onHppChange = { viewModel.updateHppAmount(selectedProduct.id, it) },
                 onPackagingTypeChange = { viewModel.updatePackagingType(selectedProduct.id, it) },
                 onPackagingValueChange = { viewModel.updatePackagingValue(selectedProduct.id, it) },
+                onVariantHppChange = { variantId, value ->
+                    viewModel.updateVariantHppAmount(selectedProduct.id, variantId, value)
+                },
+                onVariantPackagingTypeChange = { variantId, value ->
+                    viewModel.updateVariantPackagingType(selectedProduct.id, variantId, value)
+                },
+                onVariantPackagingValueChange = { variantId, value ->
+                    viewModel.updateVariantPackagingValue(selectedProduct.id, variantId, value)
+                },
                 onSave = viewModel::saveSelected,
                 onSaveNext = viewModel::saveSelectedAndNext,
             )
@@ -125,7 +138,7 @@ fun HppScreen(
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn(
+            androidx.compose.foundation.lazy.LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Clay50)
@@ -141,7 +154,7 @@ fun HppScreen(
                 item {
                     SectionCard(
                         title = "All products queue",
-                        subtitle = "Semua produk ditampilkan. Gunakan filter untuk fokus, tapi tidak lagi dibatasi per bulan.",
+                        subtitle = "Semua produk tampil penuh. Untuk produk bervariant, editor akan membuka input default produk dan override per variant.",
                     ) {
                         OutlinedTextField(
                             value = uiState.searchQuery,
@@ -227,7 +240,7 @@ private fun HppHeroCard(
                 color = Color.White.copy(alpha = 0.80f),
             )
             Text(
-                text = "Semua produk tersedia dalam satu queue. Buka satu item, simpan, lalu lanjut tanpa pindah bulan.",
+                text = "Sekarang queue mobile juga membaca variant. Default produk tetap ada, tapi item yang punya variant bisa langsung dipecah per variant dari editor yang sama.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.88f),
             )
@@ -272,8 +285,8 @@ private fun HppHeroCard(
                     )
                     QueueSpotlight(
                         modifier = Modifier.weight(1f),
-                        title = "Ready",
-                        value = formatWholeNumber(uiState.products.count { !it.missingHpp }),
+                        title = "With variants",
+                        value = formatWholeNumber(uiState.products.count { it.variants.isNotEmpty() }),
                         accent = Pine600,
                     )
                 }
@@ -387,6 +400,13 @@ private fun QuickHppListCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (product.variants.isNotEmpty()) {
+                        Text(
+                            text = product.variantSummaryLine(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 TextButton(onClick = onOpen) {
@@ -399,6 +419,9 @@ private fun QuickHppListCard(
                 }
                 if (product.isPriority) {
                     StatusPill(label = "Priority", containerColor = Ember50)
+                }
+                if (product.variants.isNotEmpty()) {
+                    StatusPill(label = "${product.variants.size} variants", containerColor = Clay100)
                 }
                 if (product.hasChanges()) {
                     StatusPill(label = "Draft", containerColor = Aqua50)
@@ -434,12 +457,18 @@ private fun QuickHppEditorSheet(
     onHppChange: (String) -> Unit,
     onPackagingTypeChange: (String) -> Unit,
     onPackagingValueChange: (String) -> Unit,
+    onVariantHppChange: (Int, String) -> Unit,
+    onVariantPackagingTypeChange: (Int, String?) -> Unit,
+    onVariantPackagingValueChange: (Int, String) -> Unit,
     onSave: () -> Unit,
     onSaveNext: () -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 4.dp)
             .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -469,6 +498,9 @@ private fun QuickHppEditorSheet(
             if (product.isPriority) {
                 StatusPill(label = "Priority queue", containerColor = Ember50)
             }
+            if (product.variants.isNotEmpty()) {
+                StatusPill(label = "${product.variants.size} variants", containerColor = Clay100)
+            }
             if (product.hasChanges()) {
                 StatusPill(label = "Draft ready", containerColor = Aqua50)
             }
@@ -482,54 +514,38 @@ private fun QuickHppEditorSheet(
             )
             MiniMetric(
                 modifier = Modifier.weight(1f),
-                title = "Current HPP",
+                title = "Default HPP",
                 value = product.hppAmountInput.toCurrencyOrDash(),
             )
         }
 
-        OutlinedTextField(
-            value = product.hppAmountInput,
-            onValueChange = onHppChange,
-            label = { Text("HPP modal") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            prefix = { Text("Rp") },
-        )
-        OutlinedTextField(
-            value = product.packagingValueInput,
-            onValueChange = onPackagingValueChange,
-            label = { Text("Biaya packing") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            prefix = if (product.packagingType == "fixed") {
-                { Text("Rp") }
-            } else {
-                null
-            },
-            suffix = if (product.packagingType == "percent") {
-                { Text("%") }
-            } else {
-                null
-            },
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = "Mode biaya packing",
-                style = MaterialTheme.typography.labelLarge,
+        SectionCard(
+            title = "Default produk",
+            subtitle = "Nilai ini akan jadi fallback untuk variant yang dibiarkan kosong.",
+        ) {
+            ProductDefaultEditor(
+                product = product,
+                onHppChange = onHppChange,
+                onPackagingTypeChange = onPackagingTypeChange,
+                onPackagingValueChange = onPackagingValueChange,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = product.packagingType == "fixed",
-                    onClick = { onPackagingTypeChange("fixed") },
-                    label = { Text("Fixed") },
-                )
-                FilterChip(
-                    selected = product.packagingType == "percent",
-                    onClick = { onPackagingTypeChange("percent") },
-                    label = { Text("Percent") },
-                )
+        }
+
+        if (product.variants.isNotEmpty()) {
+            SectionCard(
+                title = "Biaya per Variant",
+                subtitle = "Isi hanya variant yang butuh override. Kalau dibiarkan kosong, variant akan ikut default produk.",
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    product.variants.forEach { variant ->
+                        VariantEditorCard(
+                            variant = variant,
+                            onHppChange = { onVariantHppChange(variant.id, it) },
+                            onPackagingTypeChange = { onVariantPackagingTypeChange(variant.id, it) },
+                            onPackagingValueChange = { onVariantPackagingValueChange(variant.id, it) },
+                        )
+                    }
+                }
             }
         }
 
@@ -538,7 +554,7 @@ private fun QuickHppEditorSheet(
             shape = MaterialTheme.shapes.medium,
         ) {
             Text(
-                text = "Jika ongkir internal belum dipisah di backend, gabungkan sementara ke biaya packing agar update mobile tetap cepat.",
+                text = "Alur paling aman: isi default produk dulu, lalu override hanya variant yang memang HPP atau packaging-nya beda.",
                 modifier = Modifier.padding(12.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -586,6 +602,202 @@ private fun QuickHppEditorSheet(
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun ProductDefaultEditor(
+    product: HppEditorItem,
+    onHppChange: (String) -> Unit,
+    onPackagingTypeChange: (String) -> Unit,
+    onPackagingValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = product.hppAmountInput,
+        onValueChange = onHppChange,
+        label = { Text("HPP default") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        prefix = { Text("Rp") },
+        visualTransformation = ThousandsSeparatorVisualTransformation,
+    )
+    PackagingModeChips(
+        selectedMode = product.packagingType,
+        allowInherit = false,
+        onModeSelected = onPackagingTypeChange,
+    )
+    OutlinedTextField(
+        value = product.packagingValueInput,
+        onValueChange = onPackagingValueChange,
+        label = { Text("Biaya packing default") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        prefix = if (product.packagingType == "fixed") {
+            { Text("Rp") }
+        } else {
+            null
+        },
+        suffix = if (product.packagingType == "percent") {
+            { Text("%") }
+        } else {
+            null
+        },
+        visualTransformation = if (product.packagingType == "fixed") {
+            ThousandsSeparatorVisualTransformation
+        } else {
+            VisualTransformation.None
+        },
+    )
+}
+
+@Composable
+private fun VariantEditorCard(
+    variant: HppEditorVariantItem,
+    onHppChange: (String) -> Unit,
+    onPackagingTypeChange: (String?) -> Unit,
+    onPackagingValueChange: (String) -> Unit,
+) {
+    val displayMode = variant.packagingType ?: variant.effectivePackagingType
+    val effectivePackagingText = if (variant.effectivePackagingType == "percent") {
+        variant.effectivePackagingValue?.let { "$it%" } ?: "-"
+    } else {
+        variant.effectivePackagingValue?.toString()?.toCurrencyOrDash() ?: "-"
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+                .animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = variant.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = buildString {
+                            append(variant.sku)
+                            if (variant.basePrice != null) {
+                                append(" | ")
+                                append(formatCurrency(variant.basePrice.toDouble()))
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                StatusPill(
+                    label = when {
+                        variant.hasChanges() -> "Draft"
+                        variant.packagingType == null && variant.hppAmountInput.isBlank() -> "Inherit"
+                        else -> "Override"
+                    },
+                    containerColor = when {
+                        variant.hasChanges() -> Aqua50
+                        variant.packagingType == null && variant.hppAmountInput.isBlank() -> Clay100
+                        else -> Ember50
+                    },
+                )
+            }
+
+            Text(
+                text = "Efektif sekarang: HPP ${variant.effectiveHppAmount?.toString()?.toCurrencyOrDash() ?: "-"} | Packing $effectivePackagingText",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = variant.hppAmountInput,
+                onValueChange = onHppChange,
+                label = { Text("HPP variant") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                prefix = { Text("Rp") },
+                placeholder = { Text("Ikut default produk") },
+                visualTransformation = ThousandsSeparatorVisualTransformation,
+            )
+
+            PackagingModeChips(
+                selectedMode = variant.packagingType,
+                allowInherit = true,
+                onModeSelected = { mode -> onPackagingTypeChange(mode.takeIf { it.isNotBlank() }) },
+            )
+
+            OutlinedTextField(
+                value = variant.packagingValueInput,
+                onValueChange = onPackagingValueChange,
+                enabled = variant.packagingType != null,
+                label = { Text("Biaya packing variant") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                placeholder = { Text("Ikut default produk") },
+                prefix = if (displayMode == "fixed" && variant.packagingType != null) {
+                    { Text("Rp") }
+                } else {
+                    null
+                },
+                suffix = if (displayMode == "percent" && variant.packagingType != null) {
+                    { Text("%") }
+                } else {
+                    null
+                },
+                visualTransformation = if (displayMode == "fixed") {
+                    ThousandsSeparatorVisualTransformation
+                } else {
+                    VisualTransformation.None
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PackagingModeChips(
+    selectedMode: String?,
+    allowInherit: Boolean,
+    onModeSelected: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Mode biaya packing",
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (allowInherit) {
+                FilterChip(
+                    selected = selectedMode == null,
+                    onClick = { onModeSelected("") },
+                    label = { Text("Default") },
+                )
+            }
+            FilterChip(
+                selected = selectedMode == "fixed",
+                onClick = { onModeSelected("fixed") },
+                label = { Text("Fixed") },
+            )
+            FilterChip(
+                selected = selectedMode == "percent",
+                onClick = { onModeSelected("percent") },
+                label = { Text("Percent") },
+            )
+        }
     }
 }
 
@@ -728,5 +940,65 @@ private fun HppEditorItem.packagingDisplay(): String {
         "${packagingValueInput.replace(Regex("[^0-9]"), "")}%"
     } else {
         packagingValueInput.toCurrencyOrDash()
+    }
+}
+
+private fun HppEditorItem.variantSummaryLine(): String {
+    val overrideCount = variants.count { it.hppAmountInput.isNotBlank() || it.packagingType != null }
+    val inheritCount = variants.size - overrideCount
+    return "${variants.size} variant | $overrideCount override | $inheritCount ikut default"
+}
+
+private fun HppEditorVariantItem.hasChanges(): Boolean {
+    return hppAmountInput != originalHppAmountInput ||
+        packagingType != originalPackagingType ||
+        packagingValueInput != originalPackagingValueInput
+}
+
+private object ThousandsSeparatorVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val original = text.text.filter(Char::isDigit)
+        if (original.isEmpty()) {
+            return TransformedText(AnnotatedString(""), OffsetMapping.Identity)
+        }
+
+        val formatted = original
+            .reversed()
+            .chunked(3)
+            .joinToString(".")
+            .reversed()
+
+        val originalToTransformed = IntArray(original.length + 1)
+        var digitIndex = 0
+        formatted.forEachIndexed { index, char ->
+            if (char.isDigit()) {
+                originalToTransformed[digitIndex + 1] = index + 1
+                digitIndex++
+            }
+        }
+
+        val transformedToOriginal = IntArray(formatted.length + 1)
+        var transformedDigitCount = 0
+        formatted.forEachIndexed { index, char ->
+            if (char.isDigit()) {
+                transformedDigitCount++
+            }
+            transformedToOriginal[index + 1] = transformedDigitCount
+        }
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                return originalToTransformed[offset.coerceIn(0, original.length)]
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                return transformedToOriginal[offset.coerceIn(0, formatted.length)]
+            }
+        }
+
+        return TransformedText(
+            text = AnnotatedString(formatted),
+            offsetMapping = offsetMapping,
+        )
     }
 }

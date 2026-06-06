@@ -6,6 +6,7 @@ use App\Models\CeoAlertLog;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopeeOrderFinancial;
 use App\Models\ShopeeProductAdsDaily;
 use App\Models\ShopeeToken;
@@ -197,6 +198,24 @@ class MobileCeoApiTest extends TestCase
             'hpp_amount' => null,
             'is_active' => true,
         ]);
+        $variantA = ProductVariant::query()->create([
+            'product_id' => $missingProduct->id,
+            'name' => 'Varian A',
+            'sku' => 'VAR-A',
+            'price' => 121000,
+            'hpp_amount' => null,
+            'packaging_type' => null,
+            'packaging_value' => null,
+        ]);
+        ProductVariant::query()->create([
+            'product_id' => $missingProduct->id,
+            'name' => 'Varian B',
+            'sku' => 'VAR-B',
+            'price' => 122000,
+            'hpp_amount' => null,
+            'packaging_type' => null,
+            'packaging_value' => null,
+        ]);
 
         Sanctum::actingAs($user, ['mobile:ceo']);
 
@@ -209,6 +228,10 @@ class MobileCeoApiTest extends TestCase
         $products = collect($listResponse->json('data.products'));
         $this->assertTrue($products->contains(fn (array $item) => $item['id'] === $missingProduct->id && $item['missing_hpp'] === true));
         $this->assertFalse($products->contains(fn (array $item) => $item['sku'] === 'SKU-OTHER'));
+        $missingProductPayload = $products->firstWhere('id', $missingProduct->id);
+        $this->assertCount(2, $missingProductPayload['variants']);
+        $this->assertSame('Varian A', $missingProductPayload['variants'][0]['name']);
+        $this->assertTrue($missingProductPayload['variants'][0]['inherits_product']);
 
         $saveResponse = $this->postJson('/api/v1/mobile/ceo/hpp/bulk', [
             'products' => [
@@ -217,13 +240,22 @@ class MobileCeoApiTest extends TestCase
                     'hpp_amount' => 55000,
                     'packaging_type' => 'fixed',
                     'packaging_value' => 2500,
+                    'variants' => [
+                        [
+                            'id' => $variantA->id,
+                            'hpp_amount' => 53000,
+                            'packaging_type' => 'fixed',
+                            'packaging_value' => 1800,
+                        ],
+                    ],
                 ],
             ],
         ]);
 
         $saveResponse->assertOk()
             ->assertJsonPath('data.message', 'Quick HPP berhasil disimpan.')
-            ->assertJsonPath('data.updated_count', 1);
+            ->assertJsonPath('data.updated_count', 1)
+            ->assertJsonPath('data.updated_variant_count', 1);
 
         $this->assertDatabaseHas('products', [
             'id' => $missingProduct->id,
@@ -231,6 +263,48 @@ class MobileCeoApiTest extends TestCase
             'packaging_type' => 'fixed',
             'packaging_value' => 2500,
         ]);
+        $this->assertDatabaseHas('product_variants', [
+            'id' => $variantA->id,
+            'hpp_amount' => 53000,
+            'packaging_type' => 'fixed',
+            'packaging_value' => 1800,
+        ]);
+
+        $afterSaveResponse = $this->getJson('/api/v1/mobile/ceo/hpp/priority');
+        $afterSaveResponse->assertOk();
+        $afterSaveProducts = collect($afterSaveResponse->json('data.products'));
+        $afterSavePayload = $afterSaveProducts->firstWhere('id', $missingProduct->id);
+        $this->assertFalse((bool) $afterSavePayload['missing_hpp']);
+    }
+
+    public function test_mobile_ceo_hpp_priority_returns_all_products_when_limit_is_not_sent(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ceo@example.com',
+        ]);
+
+        $this->seedDashboardData(shopId: 2001, gross: 100000, net: 90000, hpp: 40000, ads: 10000, operational: 5000);
+
+        foreach (range(1, 24) as $index) {
+            Product::query()->create([
+                'name' => 'Produk Extra ' . $index,
+                'external_platform' => 'shopee',
+                'external_shop_id' => 2001,
+                'external_item_id' => '2001X' . $index,
+                'external_sku' => 'SKU-EXTRA-' . $index,
+                'base_price' => 10000 + $index,
+                'hpp_amount' => $index % 2 === 0 ? 5000 + $index : null,
+                'is_active' => true,
+            ]);
+        }
+
+        Sanctum::actingAs($user, ['mobile:ceo']);
+
+        $response = $this->getJson('/api/v1/mobile/ceo/hpp/priority');
+
+        $response->assertOk()
+            ->assertJsonPath('data.summary.total', 25)
+            ->assertJsonCount(25, 'data.products');
     }
 
     public function test_mobile_ceo_can_fetch_read_alerts_and_log_decisions(): void
