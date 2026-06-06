@@ -366,11 +366,14 @@ class ShopeeAdsSyncService
     private function fetchProductCampaignItemMap(ShopeeToken $token, array $campaignIds): array
     {
         $path = config('shopee.ads_endpoints.product_campaign_setting');
+        $infoTypes = config('shopee.product_campaign_setting_info_types', [1, 2, 3, 4]);
+        $infoTypeList = implode(',', array_map('intval', is_array($infoTypes) ? $infoTypes : [1, 2, 3, 4]));
         $map = [];
 
         foreach (array_chunk($campaignIds, 50) as $chunk) {
             $response = $this->client->requestPrivate('GET', $path, [
                 'campaign_id_list' => implode(',', $chunk),
+                'info_type_list' => $infoTypeList,
             ], $token);
 
             $payload = $this->responsePayload($response);

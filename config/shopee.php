@@ -86,6 +86,13 @@ return [
         'gms_item' => '/api/v2/ads/get_gms_item_performance',
     ],
 
+    // Shopee requires info_type_list for campaign setting info.
+    // Default to all known types so the mapping payload is complete.
+    'product_campaign_setting_info_types' => array_map(
+        'intval',
+        array_filter(array_map('trim', explode(',', env('SHOPEE_PRODUCT_CAMPAIGN_SETTING_INFO_TYPES', '1,2,3,4'))))
+    ),
+
     'storefront_host' => env('SHOPEE_STOREFRONT_HOST', 'shopee.co.id'),
     'seller_host' => env('SHOPEE_SELLER_HOST', 'seller.shopee.co.id'),
 ];
