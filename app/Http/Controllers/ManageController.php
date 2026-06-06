@@ -22,7 +22,9 @@ class ManageController extends Controller
 {
     public function index(Request $request): View
     {
-        $token = $this->currentToken();
+        $token = $this->currentToken(ShopeeToken::APP_MAIN);
+        $adsConfigured = ShopeeClient::isConfigured(ShopeeToken::APP_ADS);
+        $adsToken = $adsConfigured ? $this->currentToken(ShopeeToken::APP_ADS) : null;
         $shopId = ShopeeShopContext::shopId();
 
         $yearMonth = $request->query('month', now()->format('Y-m'));
@@ -55,6 +57,9 @@ class ManageController extends Controller
 
         return view('hub.manage', [
             'token' => $token,
+            'mainToken' => $token,
+            'adsToken' => $adsToken,
+            'adsConfigured' => $adsConfigured,
             'env' => config('shopee.env', 'test'),
             'yearMonth' => $yearMonth,
             'operational' => $operational,
@@ -150,35 +155,36 @@ class ManageController extends Controller
 
     private function runSync(Request $request, string $type): RedirectResponse
     {
-        $token = $this->currentToken();
-        if (!$token) {
+        $mainToken = $this->currentToken(ShopeeToken::APP_MAIN);
+        if (!$mainToken) {
             return back()->with('error', 'Belum terhubung ke Shopee. Klik Connect Shopee.');
         }
 
         $days = max(1, min(90, (int) $request->input('days', config('shopee.sync_days', 7))));
         $adsDays = max(1, min(90, (int) $request->input('ads_days', config('shopee.ads_sync_days', 30))));
-        $client = ShopeeClient::fromConfig();
+        $mainClient = ShopeeClient::fromConfig(ShopeeToken::APP_MAIN);
 
         $messages = [];
 
         try {
             if (in_array($type, ['orders', 'all'], true)) {
-                $summary = (new ShopeeOrderSyncService($client))->syncRecent($token, $days);
+                $summary = (new ShopeeOrderSyncService($mainClient))->syncRecent($mainToken, $days);
                 $messages[] = "Order: {$summary['created']} baru, {$summary['updated']} update";
             }
 
             if (in_array($type, ['products', 'all'], true)) {
-                $ps = (new ShopeeProductSyncService($client))->syncAll($token, (int) $request->input('page_size', 100));
+                $ps = (new ShopeeProductSyncService($mainClient))->syncAll($mainToken, (int) $request->input('page_size', 100));
                 $messages[] = "Produk: {$ps['created']} baru, {$ps['updated']} update";
             }
 
             if (in_array($type, ['ads', 'all'], true)) {
-                $summary = (new ShopeeAdsSyncService($client))->sync($token, $adsDays);
-                $messages[] = "Ads: {$summary['saved']} baris tersimpan";
+                [$adsClient, $adsToken, $appType] = $this->resolveAdsContext((int) $mainToken->shop_id);
+                $summary = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
+                $messages[] = "Ads ({$appType}): {$summary['saved']} baris tersimpan";
             }
 
             if (in_array($type, ['all'], true)) {
-                $bcg = (new ShopeeBcgSyncService($client))->sync($token);
+                $bcg = (new ShopeeBcgSyncService($mainClient))->sync($mainToken);
                 $messages[] = "BCG: {$bcg['saved']} SKU (skip import: {$bcg['skipped']})";
             }
         } catch (\Throwable $e) {
@@ -188,16 +194,47 @@ class ManageController extends Controller
         return back()->with('success', implode(' · ', $messages));
     }
 
-    private function currentToken(): ?ShopeeToken
+    private function currentToken(string $appType = ShopeeToken::APP_MAIN): ?ShopeeToken
     {
         $env = config('shopee.env', 'test');
-        $shopId = config('shopee.shop_id');
+        $shopId = ShopeeShopContext::shopId() ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
+        $q = ShopeeToken::query()->where('env', $env)->forApp($appType);
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);
         }
 
         return $q->orderByDesc('id')->first();
+    }
+
+    private function resolveAdsContext(int $shopId): array
+    {
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = ShopeeToken::query()
+                ->where('env', config('shopee.env', 'test'))
+                ->forApp(ShopeeToken::APP_ADS)
+                ->where('shop_id', $shopId)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$adsToken) {
+                throw new \RuntimeException('Credential Ads Service sudah diisi, tapi toko ini belum di-connect ke app Ads Service.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken, ShopeeToken::APP_ADS];
+        }
+
+        $mainToken = ShopeeToken::query()
+            ->where('env', config('shopee.env', 'test'))
+            ->forApp(ShopeeToken::APP_MAIN)
+            ->where('shop_id', $shopId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$mainToken) {
+            throw new \RuntimeException('Belum ada token Shopee Main App.');
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken, ShopeeToken::APP_MAIN];
     }
 }

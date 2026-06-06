@@ -121,6 +121,7 @@ Route::middleware('simple.auth')->group(function () {
     Route::prefix('integrations/shopee')->name('shopee.')->group(function () {
         Route::get('/', [ShopeeIntegrationController::class, 'index'])->name('index');
         Route::get('/connect', [ShopeeIntegrationController::class, 'connect'])->name('connect');
+        Route::get('/connect/{appType}', [ShopeeIntegrationController::class, 'connect'])->name('connect.app');
         Route::post('/sync', [ShopeeIntegrationController::class, 'sync'])->name('sync');
         Route::post('/sync-products', [ShopeeIntegrationController::class, 'syncProducts'])->name('sync-products');
         Route::post('/sync-all', [ShopeeIntegrationController::class, 'syncAll'])->name('sync-all');

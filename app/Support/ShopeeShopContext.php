@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 class ShopeeShopContext
 {
     public const SESSION_KEY = 'shopee_active_shop_id';
+    private static ?int $forcedShopId = null;
 
     public static function env(): string
     {
@@ -20,6 +21,7 @@ class ShopeeShopContext
     {
         return ShopeeToken::query()
             ->where('env', static::env())
+            ->forApp(ShopeeToken::APP_MAIN)
             ->orderBy('shop_id')
             ->get();
     }
@@ -68,8 +70,26 @@ class ShopeeShopContext
         session([static::SESSION_KEY => $shopId]);
     }
 
+    public static function forceShopId(int $shopId): void
+    {
+        if (!static::isValidShop($shopId)) {
+            return;
+        }
+
+        static::$forcedShopId = $shopId;
+    }
+
+    public static function clearForcedShopId(): void
+    {
+        static::$forcedShopId = null;
+    }
+
     public static function shopId(): int
     {
+        if (static::$forcedShopId > 0 && static::isValidShop(static::$forcedShopId)) {
+            return static::$forcedShopId;
+        }
+
         $sessionId = (int) session(static::SESSION_KEY, 0);
         if ($sessionId > 0 && static::isValidShop($sessionId)) {
             return $sessionId;
@@ -96,6 +116,7 @@ class ShopeeShopContext
     {
         return ShopeeToken::query()
             ->where('env', static::env())
+            ->forApp(ShopeeToken::APP_MAIN)
             ->where('shop_id', $shopId)
             ->first();
     }

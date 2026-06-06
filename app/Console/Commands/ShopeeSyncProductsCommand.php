@@ -63,7 +63,7 @@ class ShopeeSyncProductsCommand extends Command
         $env = $envOverride ?: config('shopee.env', 'test');
         $shopId = $shopIdOverride ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
+        $q = ShopeeToken::query()->where('env', $env)->forApp(ShopeeToken::APP_MAIN);
 
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);

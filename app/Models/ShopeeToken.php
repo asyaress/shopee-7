@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShopeeToken extends Model
 {
+    public const APP_MAIN = 'main';
+    public const APP_ADS = 'ads';
+
     protected $table = 'shopee_tokens';
 
     protected $fillable = [
         'env',
+        'app_type',
         'partner_id',
         'shop_id',
         'access_token',
@@ -25,6 +29,11 @@ class ShopeeToken extends Model
         'expire_at' => 'datetime',
         'raw' => 'array',
     ];
+
+    public function scopeForApp($query, string $appType = self::APP_MAIN)
+    {
+        return $query->where('app_type', $appType);
+    }
 
     public function isExpired(int $bufferSeconds = 0): bool
     {

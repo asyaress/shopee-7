@@ -39,30 +39,31 @@ class ShopeeSyncAllCommand extends Command
             return self::FAILURE;
         }
 
-        $client = ShopeeClient::fromConfig();
+        $mainClient = ShopeeClient::fromConfig(ShopeeToken::APP_MAIN);
 
         try {
             $this->info("Sync ALL env={$token->env} shop_id={$token->shop_id} ...");
 
-            $pSvc = new ShopeeProductSyncService($client);
+            $pSvc = new ShopeeProductSyncService($mainClient);
             $p = $pSvc->syncAll($token, $pageSize);
             $this->info("Products: C{$p['created']} U{$p['updated']} P{$p['processed']}");
 
-            $oSvc = new ShopeeOrderSyncService($client);
+            $oSvc = new ShopeeOrderSyncService($mainClient);
             $o = $oSvc->syncRecent($token, $days);
             $this->info("Orders: C{$o['created']} U{$o['updated']} P{$o['processed']}");
 
             $adsDays = (int) ($this->option('ads_days') ?: config('shopee.ads_sync_days', 30));
             try {
-                $aSvc = new ShopeeAdsSyncService($client);
-                $a = $aSvc->sync($token, $adsDays);
+                [$adsClient, $adsToken] = $this->resolveAdsContext((int) $token->shop_id, $envOpt);
+                $aSvc = new ShopeeAdsSyncService($adsClient);
+                $a = $aSvc->sync($adsToken, $adsDays);
                 $this->info("Ads: saved={$a['saved']} skipped={$a['skipped']}");
             } catch (\Throwable $adsEx) {
                 $this->warn('Ads sync skipped: ' . $adsEx->getMessage());
             }
 
             try {
-                $b = (new ShopeeBcgSyncService($client))->sync($token);
+                $b = (new ShopeeBcgSyncService($mainClient))->sync($token);
                 $this->info("BCG: saved={$b['saved']} skipped={$b['skipped']}");
             } catch (\Throwable $bcgEx) {
                 $this->warn('BCG sync skipped: ' . $bcgEx->getMessage());
@@ -92,12 +93,45 @@ class ShopeeSyncAllCommand extends Command
         $env = $envOverride ?: config('shopee.env', 'test');
         $shopId = $shopIdOverride ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
+        $q = ShopeeToken::query()->where('env', $env)->forApp(ShopeeToken::APP_MAIN);
 
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);
         }
 
         return $q->orderByDesc('id')->first();
+    }
+
+    private function resolveAdsContext(int $shopId, ?string $envOverride = null): array
+    {
+        $env = $envOverride ?: config('shopee.env', 'test');
+
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = ShopeeToken::query()
+                ->where('env', $env)
+                ->forApp(ShopeeToken::APP_ADS)
+                ->where('shop_id', $shopId)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$adsToken) {
+                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi token Ads untuk shop ini belum terhubung.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken];
+        }
+
+        $mainToken = ShopeeToken::query()
+            ->where('env', $env)
+            ->forApp(ShopeeToken::APP_MAIN)
+            ->where('shop_id', $shopId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$mainToken) {
+            throw new \RuntimeException('Tidak ada token Shopee Main App.');
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken];
     }
 }

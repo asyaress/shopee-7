@@ -22,15 +22,15 @@ class ShopeeSyncAdsCommand extends Command
         $days = (int) ($this->option('days') ?: config('shopee.ads_sync_days', 30));
         $days = max(1, min(90, $days));
 
-        $token = $this->getToken();
-        if (!$token) {
+        [$client, $token, $appType] = $this->resolveAdsContext();
+        if (!$token || !$client) {
             $this->error('Tidak ada token Shopee. Connect dulu di halaman Kelola Data.');
             return self::FAILURE;
         }
 
         try {
-            $svc = new ShopeeAdsSyncService(ShopeeClient::fromConfig());
-            $this->info("Sync ads env={$token->env} shop_id={$token->shop_id} days={$days} ...");
+            $svc = new ShopeeAdsSyncService($client);
+            $this->info("Sync ads app={$appType} env={$token->env} shop_id={$token->shop_id} days={$days} ...");
             $result = $svc->sync($token, $days);
             $msg = "DONE ads: saved={$result['saved']} skipped={$result['skipped']}";
             $this->info($msg);
@@ -49,16 +49,34 @@ class ShopeeSyncAdsCommand extends Command
         }
     }
 
-    private function getToken(): ?ShopeeToken
+    private function resolveAdsContext(): array
     {
         $env = $this->option('env') ?: config('shopee.env', 'test');
         $shopId = $this->option('shop_id') ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
-        if ($shopId) {
-            $q->where('shop_id', (int) $shopId);
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = ShopeeToken::query()
+                ->where('env', $env)
+                ->forApp(ShopeeToken::APP_ADS);
+            if ($shopId) {
+                $adsToken->where('shop_id', (int) $shopId);
+            }
+
+            $resolved = $adsToken->orderByDesc('id')->first();
+            if (!$resolved) {
+                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi token Ads untuk shop ini belum terhubung.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $resolved, ShopeeToken::APP_ADS];
         }
 
-        return $q->orderByDesc('id')->first();
+        $mainToken = ShopeeToken::query()
+            ->where('env', $env)
+            ->forApp(ShopeeToken::APP_MAIN);
+        if ($shopId) {
+            $mainToken->where('shop_id', (int) $shopId);
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken->orderByDesc('id')->first(), ShopeeToken::APP_MAIN];
     }
 }

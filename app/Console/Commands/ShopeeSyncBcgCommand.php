@@ -59,7 +59,7 @@ class ShopeeSyncBcgCommand extends Command
         $env = $this->option('env') ?: config('shopee.env', 'test');
         $shopId = $this->option('shop_id') ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
+        $q = ShopeeToken::query()->where('env', $env)->forApp(ShopeeToken::APP_MAIN);
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);
         }

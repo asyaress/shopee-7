@@ -229,6 +229,7 @@ class MonitoringController extends Controller
 
         $token = \App\Models\ShopeeToken::query()
             ->where('env', config('shopee.env', 'test'))
+            ->forApp(\App\Models\ShopeeToken::APP_MAIN)
             ->where('shop_id', $shopId)
             ->orderByDesc('id')
             ->first();

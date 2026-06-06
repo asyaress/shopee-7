@@ -1,6 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Kelola Data — Shopee Profit Hub')
+@section('title', 'Kelola Data - Shopee Profit Hub')
 
 @section('content')
 @php
@@ -16,11 +16,12 @@
         'meta' => [
             ['icon' => 'fa-clock', 'text' => 'Diperbarui ' . ($meta['generated_at'] ?? now()->format('d M Y H:i'))],
             ['icon' => 'fa-store', 'text' => $token ? 'Shop ' . $token->shop_id : 'Belum terhubung'],
+            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'Ads Service connected' : 'Ads Service belum connect') : 'Ads Service opsional'],
         ],
         'actions' => '<a href="' . route('monitoring.index') . '" class="hub-btn hub-btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)"><i class="fas fa-chart-line"></i> Monitoring</a>',
     ])
 
-  <div class="report-kpi-hero" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+    <div class="report-kpi-hero" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
         <div class="report-kpi-card">
             <div class="label">Total Produk</div>
             <div class="value">{{ hub_num($st['products_total'] ?? 0) }}</div>
@@ -81,10 +82,19 @@
                         <table class="w-100">
                             <tr><td class="text-muted py-1">Shop ID</td><td class="text-end fw-bold">{{ $token->shop_id }}</td></tr>
                             <tr><td class="text-muted py-1">Environment</td><td class="text-end"><span class="hub-pill hub-pill-muted">{{ strtoupper($env) }}</span></td></tr>
-                            @if($token->expire_at)
-                            <tr><td class="text-muted py-1">Token expire</td><td class="text-end">{{ $token->expire_at->format('d M Y H:i') }}</td></tr>
+                            @if($mainToken?->expire_at)
+                            <tr><td class="text-muted py-1">Main App expire</td><td class="text-end">{{ $mainToken->expire_at->format('d M Y H:i') }}</td></tr>
+                            @endif
+                            @if(($adsToken ?? null)?->expire_at)
+                            <tr><td class="text-muted py-1">Ads App expire</td><td class="text-end">{{ $adsToken->expire_at->format('d M Y H:i') }}</td></tr>
                             @endif
                         </table>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        <a href="{{ route('shopee.connect') }}" class="hub-btn hub-btn-outline hub-btn-sm"><i class="fas fa-link"></i> Reconnect Main App</a>
+                        @if($adsConfigured ?? false)
+                        <a href="{{ route('shopee.connect.app', ['appType' => 'ads']) }}" class="hub-btn hub-btn-outline hub-btn-sm"><i class="fas fa-bullhorn"></i> {{ ($adsToken ?? null) ? 'Reconnect Ads App' : 'Connect Ads App' }}</a>
+                        @endif
                     </div>
                     <div class="sync-action-grid">
                         <form method="POST" action="{{ route('manage.sync.orders') }}" class="sync-action-card">
@@ -105,7 +115,7 @@
                             @csrf<input type="hidden" name="ads_days" value="30">
                             <i class="fas fa-bullhorn"></i>
                             <strong>Sync Iklan</strong>
-                            <span>30 hari · per produk</span>
+                            <span>30 hari · {{ ($adsConfigured ?? false) ? 'pakai Ads App' : 'pakai Main App' }}</span>
                             <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm w-100 mt-2">Jalankan</button>
                         </form>
                         <form method="POST" action="{{ route('manage.sync.all') }}" class="sync-action-card highlight">
@@ -117,10 +127,10 @@
                             <button type="submit" class="hub-btn hub-btn-primary hub-btn-sm w-100 mt-2">Jalankan</button>
                         </form>
                     </div>
-                    <p class="small text-muted mb-0 mt-2"><i class="fas fa-info-circle me-1"></i> Permission Marketing/Ads diperlukan untuk sync iklan.</p>
+                    <p class="small text-muted mb-0 mt-2"><i class="fas fa-info-circle me-1"></i> Order/produk tetap pakai Main App. Jika env Ads diisi, sync iklan otomatis memakai Ads Service App.</p>
                     @else
                     <p class="mb-3">Hubungkan toko Shopee untuk mulai menarik data otomatis.</p>
-                    <a href="{{ route('shopee.connect') }}" class="hub-btn hub-btn-primary"><i class="fas fa-link"></i> Connect Shopee</a>
+                    <a href="{{ route('shopee.connect') }}" class="hub-btn hub-btn-primary"><i class="fas fa-link"></i> Connect Main App</a>
                     @endif
                 </div>
             </div>
@@ -150,7 +160,7 @@
                         @if($operational)
                         <div class="alert alert-info py-2 small mb-3">
                             Tersimpan: <strong>{{ hub_rp($operational->operational_amount) }}</strong>
-                            @if($operational->notes) — {{ $operational->notes }} @endif
+                            @if($operational->notes) - {{ $operational->notes }} @endif
                         </div>
                         @endif
                         <button type="submit" class="hub-btn hub-btn-primary w-100"><i class="fas fa-save"></i> Simpan Operasional</button>
@@ -165,7 +175,7 @@
         <div class="hub-card-header flex-wrap">
             <div>
                 <h2 class="report-section-title"><i class="fas fa-tags me-2"></i>Master HPP & Packaging</h2>
-                <p class="report-section-desc">{{ $products->count() }} SKU — input manual per produk</p>
+                <p class="report-section-desc">{{ $products->count() }} SKU - input manual per produk</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 <input type="search" id="hppSearch" class="hub-form-control report-search" placeholder="Cari produk...">

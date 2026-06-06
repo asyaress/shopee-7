@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\Mobile\CeoController as MobileCeoController;
+use App\Http\Controllers\Api\V1\Mobile\AuthController as MobileAuthController;
+use App\Http\Controllers\Api\V1\Mobile\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\GuestController;
@@ -27,6 +30,28 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::prefix('v1')->group(function () {
     Route::get('/health', [SystemController::class, 'health'])->middleware('throttle:health-api');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login-api');
+
+    Route::prefix('mobile')->group(function () {
+        Route::post('/auth/login', [MobileAuthController::class, 'login'])->middleware('throttle:mobile-login-api');
+
+        Route::middleware(['auth:sanctum', 'abilities:mobile:ceo', 'mobile.ceo'])->group(function () {
+            Route::post('/auth/logout', [MobileAuthController::class, 'logout']);
+            Route::get('/auth/me', [MobileAuthController::class, 'me']);
+            Route::post('/devices/register', [MobileDeviceController::class, 'register'])->middleware('throttle:mobile-write-api');
+
+            Route::get('/ceo/shops', [MobileCeoController::class, 'shops']);
+            Route::post('/ceo/shops/active', [MobileCeoController::class, 'setActiveShop'])->middleware('throttle:mobile-write-api');
+            Route::get('/ceo/dashboard', [MobileCeoController::class, 'dashboard']);
+            Route::get('/ceo/targets', [MobileCeoController::class, 'targets']);
+            Route::post('/ceo/targets', [MobileCeoController::class, 'saveTargets'])->middleware('throttle:mobile-write-api');
+            Route::get('/ceo/hpp/priority', [MobileCeoController::class, 'hppPriority']);
+            Route::post('/ceo/hpp/bulk', [MobileCeoController::class, 'saveHppBulk'])->middleware('throttle:mobile-write-api');
+            Route::get('/ceo/alerts', [MobileCeoController::class, 'alerts']);
+            Route::post('/ceo/alerts/read', [MobileCeoController::class, 'markAlertsRead'])->middleware('throttle:mobile-write-api');
+            Route::get('/ceo/decisions', [MobileCeoController::class, 'decisions']);
+            Route::post('/ceo/decisions', [MobileCeoController::class, 'storeDecision'])->middleware('throttle:mobile-write-api');
+        });
+    });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);

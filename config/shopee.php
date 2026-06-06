@@ -10,6 +10,23 @@ return [
     'partner_id' => (int) env('SHOPEE_PARTNER_ID'),
     'partner_key' => env('SHOPEE_PARTNER_KEY'),
 
+    // App credentials. "main" is used for orders/products/financials,
+    // while "ads" can use a separate Shopee app with Ads Service category.
+    'apps' => [
+        'main' => [
+            'label' => 'Main App',
+            'partner_id' => (int) env('SHOPEE_PARTNER_ID'),
+            'partner_key' => env('SHOPEE_PARTNER_KEY'),
+            'redirect_url' => env('SHOPEE_REDIRECT_URL'),
+        ],
+        'ads' => [
+            'label' => 'Ads Service App',
+            'partner_id' => (int) env('SHOPEE_ADS_PARTNER_ID'),
+            'partner_key' => env('SHOPEE_ADS_PARTNER_KEY'),
+            'redirect_url' => env('SHOPEE_ADS_REDIRECT_URL', env('SHOPEE_REDIRECT_URL')),
+        ],
+    ],
+
     // Product statuses to sync (comma-separated). UNLIST = arsip Seller Center.
     'product_item_statuses' => array_values(array_filter(array_map('trim', explode(',', env(
         'SHOPEE_PRODUCT_STATUSES',

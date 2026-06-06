@@ -27,7 +27,7 @@ class ShopeeSyncAllShopsCommand extends Command
         }
 
         $env = config('shopee.env', 'test');
-        $tokens = ShopeeToken::query()->where('env', $env)->orderBy('shop_id')->get();
+        $tokens = ShopeeToken::query()->where('env', $env)->forApp(ShopeeToken::APP_MAIN)->orderBy('shop_id')->get();
 
         if ($tokens->isEmpty()) {
             $this->error('Tidak ada token Shopee.');
@@ -38,22 +38,23 @@ class ShopeeSyncAllShopsCommand extends Command
         $days = max(1, min(90, (int) $this->option('days')));
         $adsDays = max(1, min(90, (int) ($this->option('ads_days') ?: config('shopee.ads_sync_days', 30))));
         $pageSize = max(1, min(100, (int) $this->option('page_size')));
-        $client = ShopeeClient::fromConfig();
+        $mainClient = ShopeeClient::fromConfig(ShopeeToken::APP_MAIN);
 
         foreach ($tokens as $token) {
             $this->info("=== Shop {$token->shop_id} ===");
 
             try {
-                $p = (new ShopeeProductSyncService($client))->syncAll($token, $pageSize);
+                $p = (new ShopeeProductSyncService($mainClient))->syncAll($token, $pageSize);
                 $this->line("  Products C{$p['created']} U{$p['updated']}");
 
-                $o = (new ShopeeOrderSyncService($client))->syncRecent($token, $days);
+                $o = (new ShopeeOrderSyncService($mainClient))->syncRecent($token, $days);
                 $this->line("  Orders C{$o['created']} U{$o['updated']}");
 
-                $a = (new ShopeeAdsSyncService($client))->sync($token, $adsDays);
+                [$adsClient, $adsToken] = $this->resolveAdsContext((int) $token->shop_id, $env);
+                $a = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
                 $this->line("  Ads saved={$a['saved']}");
 
-                $b = (new ShopeeBcgSyncService($client))->sync($token);
+                $b = (new ShopeeBcgSyncService($mainClient))->sync($token);
                 $this->line("  BCG saved={$b['saved']} skipped={$b['skipped']}");
             } catch (\Throwable $e) {
                 $this->warn("  Gagal shop {$token->shop_id}: " . $e->getMessage());
@@ -62,5 +63,36 @@ class ShopeeSyncAllShopsCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function resolveAdsContext(int $shopId, string $env): array
+    {
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = ShopeeToken::query()
+                ->where('env', $env)
+                ->forApp(ShopeeToken::APP_ADS)
+                ->where('shop_id', $shopId)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$adsToken) {
+                throw new \RuntimeException('Token Ads Service untuk shop ini belum terhubung.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken];
+        }
+
+        $mainToken = ShopeeToken::query()
+            ->where('env', $env)
+            ->forApp(ShopeeToken::APP_MAIN)
+            ->where('shop_id', $shopId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$mainToken) {
+            throw new \RuntimeException('Token Main App tidak ditemukan.');
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken];
     }
 }

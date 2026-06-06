@@ -49,6 +49,10 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        RateLimiter::for('mobile-login-api', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
         RateLimiter::for('health-api', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });
@@ -59,6 +63,10 @@ class RouteServiceProvider extends ServiceProvider
 
         RateLimiter::for('maintenance-api', function (Request $request) {
             return Limit::perMinute(12)->by($request->ip());
+        });
+
+        RateLimiter::for('mobile-write-api', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
         });
     }
 }

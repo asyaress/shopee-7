@@ -13,25 +13,34 @@ use Illuminate\View\View;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 
-
 class ShopeeIntegrationController extends Controller
 {
     public function index(): View
     {
-        $token = $this->getCurrentToken();
+        $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN);
+        $adsConfigured = ShopeeClient::isConfigured(ShopeeToken::APP_ADS);
+        $adsToken = $adsConfigured ? $this->getCurrentToken(ShopeeToken::APP_ADS) : null;
 
         return view('shopee.index', [
-            'token' => $token,
+            'token' => $mainToken,
+            'mainToken' => $mainToken,
+            'adsToken' => $adsToken,
+            'adsConfigured' => $adsConfigured,
             'env' => config('shopee.env', 'test'),
         ]);
     }
 
-    public function connect(): RedirectResponse
+    public function connect(Request $request, string $appType = ShopeeToken::APP_MAIN): RedirectResponse
     {
-        $client = ShopeeClient::fromConfig();
+        $appType = $this->normalizeAppType($appType);
+        if (!ShopeeClient::isConfigured($appType)) {
+            return back()->with('error', 'Credential Shopee ' . $this->appLabel($appType) . ' belum lengkap di .env.');
+        }
+
+        $client = ShopeeClient::fromConfig($appType);
 
         // You can store anything you want in state (CSRF, user id, etc.).
-        $state = csrf_token();
+        $state = $this->buildState($appType, (string) $request->session()->token());
 
         return redirect()->away($client->buildAuthPartnerUrl($state));
     }
@@ -46,7 +55,8 @@ class ShopeeIntegrationController extends Controller
                 ->with('error', 'Callback dari Shopee tidak lengkap (code/shop_id kosong).');
         }
 
-        $client = ShopeeClient::fromConfig();
+        $appType = $this->parseAppTypeFromState((string) $request->query('state', ''));
+        $client = ShopeeClient::fromConfig($appType);
         $data = $client->getAccessToken($code, $shopId);
 
         $expireIn = (int) Arr::get($data, 'expire_in', 0);
@@ -57,9 +67,10 @@ class ShopeeIntegrationController extends Controller
             [
                 'env' => config('shopee.env', 'test'),
                 'shop_id' => $shopId,
+                'app_type' => $appType,
             ],
             [
-                'partner_id' => (int) config('shopee.partner_id'),
+                'partner_id' => (int) (config("shopee.apps.{$appType}.partner_id") ?: config('shopee.partner_id')),
                 'access_token' => (string) Arr::get($data, 'access_token', ''),
                 'refresh_token' => (string) Arr::get($data, 'refresh_token', ''),
                 'expire_in' => $expireIn ?: null,
@@ -70,7 +81,7 @@ class ShopeeIntegrationController extends Controller
         );
 
         return redirect()->route('manage.index')
-            ->with('success', 'Shopee berhasil terhubung. Token tersimpan.');
+            ->with('success', 'Shopee ' . $this->appLabel($appType) . ' berhasil terhubung. Token tersimpan.');
     }
 
     public function sync(Request $request): RedirectResponse
@@ -78,13 +89,13 @@ class ShopeeIntegrationController extends Controller
         $days = (int) $request->input('days', (int) config('shopee.sync_days', 7));
         $days = max(1, min(90, $days));
 
-        $token = $this->getCurrentToken();
+        $token = $this->getCurrentToken(ShopeeToken::APP_MAIN);
         if (!$token) {
             return redirect()->route('shopee.index')
-                ->with('error', 'Belum ada token Shopee. Klik Connect dulu.');
+                ->with('error', 'Belum ada token Shopee Main App. Klik Connect dulu.');
         }
 
-        $service = new ShopeeOrderSyncService(ShopeeClient::fromConfig());
+        $service = new ShopeeOrderSyncService(ShopeeClient::fromConfig(ShopeeToken::APP_MAIN));
 
         try {
             $summary = $service->syncRecent($token, $days);
@@ -99,14 +110,14 @@ class ShopeeIntegrationController extends Controller
 
     public function syncProducts(Request $request): RedirectResponse
     {
-        $token = $this->getCurrentToken();
+        $token = $this->getCurrentToken(ShopeeToken::APP_MAIN);
         if (!$token) {
             return redirect()->route('shopee.index')
-                ->with('error', 'Belum ada token Shopee. Klik Connect dulu.');
+                ->with('error', 'Belum ada token Shopee Main App. Klik Connect dulu.');
         }
 
         $pageSize = (int) $request->input('page_size', 100);
-        $service = new ShopeeProductSyncService(ShopeeClient::fromConfig());
+        $service = new ShopeeProductSyncService(ShopeeClient::fromConfig(ShopeeToken::APP_MAIN));
 
         try {
             $summary = $service->syncAll($token, $pageSize);
@@ -125,24 +136,25 @@ class ShopeeIntegrationController extends Controller
         $days = max(1, min(90, $days));
         $pageSize = (int) $request->input('page_size', 100);
 
-        $token = $this->getCurrentToken();
-        if (!$token) {
+        $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN);
+        if (!$mainToken) {
             return redirect()->route('shopee.index')
-                ->with('error', 'Belum ada token Shopee. Klik Connect dulu.');
+                ->with('error', 'Belum ada token Shopee Main App. Klik Connect dulu.');
         }
 
         $adsMsg = '';
         try {
-            $client = ShopeeClient::fromConfig();
-            $productSvc = new ShopeeProductSyncService($client);
-            $productSummary = $productSvc->syncAll($token, $pageSize);
+            $mainClient = ShopeeClient::fromConfig(ShopeeToken::APP_MAIN);
+            $productSvc = new ShopeeProductSyncService($mainClient);
+            $productSummary = $productSvc->syncAll($mainToken, $pageSize);
 
-            $orderSvc = new ShopeeOrderSyncService($client);
-            $orderSummary = $orderSvc->syncRecent($token, $days);
+            $orderSvc = new ShopeeOrderSyncService($mainClient);
+            $orderSummary = $orderSvc->syncRecent($mainToken, $days);
 
             try {
                 $adsDays = (int) config('shopee.ads_sync_days', 30);
-                $adsSummary = (new ShopeeAdsSyncService($client))->sync($token, $adsDays);
+                [$adsClient, $adsToken, $adsAppType] = $this->resolveAdsContext((int) $mainToken->shop_id);
+                $adsSummary = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
                 $adsMsg = " Ads: saved={$adsSummary['saved']}.";
             } catch (\Throwable $adsEx) {
                 $adsMsg = ' Ads: ' . $adsEx->getMessage();
@@ -159,18 +171,69 @@ class ShopeeIntegrationController extends Controller
             );
     }
 
-    private function getCurrentToken(): ?ShopeeToken
+    private function getCurrentToken(string $appType = ShopeeToken::APP_MAIN, ?int $shopIdOverride = null): ?ShopeeToken
     {
         $env = config('shopee.env', 'test');
-        $shopId = config('shopee.shop_id');
+        $shopId = $shopIdOverride ?: (int) (\App\Support\ShopeeShopContext::shopId() ?: config('shopee.shop_id'));
 
-        $q = ShopeeToken::where('env', $env);
+        $q = ShopeeToken::where('env', $env)->forApp($appType);
 
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);
         }
 
         return $q->orderByDesc('id')->first();
+    }
+
+    private function resolveAdsContext(int $shopId): array
+    {
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = $this->getCurrentToken(ShopeeToken::APP_ADS, $shopId);
+            if (!$adsToken) {
+                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi toko ini belum di-connect ke app Ads Service.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken, ShopeeToken::APP_ADS];
+        }
+
+        $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN, $shopId);
+        if (!$mainToken) {
+            throw new \RuntimeException('Belum ada token Shopee Main App.');
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken, ShopeeToken::APP_MAIN];
+    }
+
+    private function normalizeAppType(string $appType): string
+    {
+        return $appType === ShopeeToken::APP_ADS ? ShopeeToken::APP_ADS : ShopeeToken::APP_MAIN;
+    }
+
+    private function appLabel(string $appType): string
+    {
+        return $appType === ShopeeToken::APP_ADS ? 'Ads Service' : 'Main App';
+    }
+
+    private function buildState(string $appType, string $csrf): string
+    {
+        return base64_encode(json_encode([
+            'app_type' => $appType,
+            'csrf' => $csrf,
+        ]));
+    }
+
+    private function parseAppTypeFromState(string $state): string
+    {
+        if ($state === '') {
+            return ShopeeToken::APP_MAIN;
+        }
+
+        $decoded = json_decode(base64_decode($state, true) ?: '', true);
+        if (!is_array($decoded)) {
+            return ShopeeToken::APP_MAIN;
+        }
+
+        return $this->normalizeAppType((string) ($decoded['app_type'] ?? ShopeeToken::APP_MAIN));
     }
 
 public function debugAuthVariants()

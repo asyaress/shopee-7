@@ -14,31 +14,47 @@ class ShopeeClient
         private readonly string $partnerKey,
         private readonly string $host,
         private readonly string $env,
+        private readonly string $appType = 'main',
         private readonly int $refreshBufferSeconds = 300,
     ) {
     }
 
-    public static function fromConfig(): self
+    public static function fromConfig(string $appType = 'main'): self
     {
         $env = config('shopee.env', 'test');
-        $partnerId = (int) config('shopee.partner_id');
-        $partnerKey = self::normalizePartnerKey((string) config('shopee.partner_key'));
+        $app = self::appConfig($appType);
+        $partnerId = (int) ($app['partner_id'] ?? config('shopee.partner_id'));
+        $partnerKey = self::normalizePartnerKey((string) ($app['partner_key'] ?? config('shopee.partner_key')));
         $hosts = config('shopee.hosts');
         $host = $hosts[$env] ?? $hosts['test'];
         $buffer = (int) config('shopee.refresh_buffer', 300);
 
         if (!$partnerId || $partnerKey === '') {
-            throw new \RuntimeException('Shopee partner credentials are not configured. Set SHOPEE_PARTNER_ID & SHOPEE_PARTNER_KEY.');
+            $prefix = $appType === 'ads' ? 'SHOPEE_ADS_' : 'SHOPEE_';
+            throw new \RuntimeException("Shopee {$appType} credentials are not configured. Set {$prefix}PARTNER_ID & {$prefix}PARTNER_KEY.");
         }
 
-        return new self($partnerId, $partnerKey, $host, $env, $buffer);
+        return new self($partnerId, $partnerKey, $host, $env, $appType, $buffer);
+    }
+
+    public static function isConfigured(string $appType = 'main'): bool
+    {
+        $app = self::appConfig($appType);
+
+        return (int) ($app['partner_id'] ?? 0) > 0
+            && trim((string) ($app['partner_key'] ?? '')) !== '';
+    }
+
+    public static function appConfig(string $appType = 'main'): array
+    {
+        return (array) config("shopee.apps.{$appType}", []);
     }
 
     public function buildAuthPartnerUrl(?string $state = null): string
     {
         $path = '/api/v2/shop/auth_partner';
         $timestamp = time();
-        $redirectUrl = self::resolveRedirectUrl();
+        $redirectUrl = self::resolveRedirectUrl($this->appType);
 
         if ($redirectUrl === '') {
             throw new \RuntimeException('SHOPEE_REDIRECT_URL is not configured.');
@@ -264,9 +280,13 @@ private static function normalizePartnerKey(string $key): string
 /**
  * Callback must be HTTPS in production and match the domain in Shopee Console.
  */
-private static function resolveRedirectUrl(): string
+private static function resolveRedirectUrl(string $appType = 'main'): string
 {
-    $url = trim((string) config('shopee.redirect_url', ''));
+    $url = trim((string) (self::appConfig($appType)['redirect_url'] ?? ''));
+
+    if ($url === '') {
+        $url = trim((string) config('shopee.redirect_url', ''));
+    }
 
     if ($url === '') {
         $appUrl = rtrim(trim((string) config('app.url', '')), '/');

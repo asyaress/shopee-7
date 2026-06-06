@@ -46,7 +46,7 @@ class ShopeeBackfillCommand extends Command
             return self::FAILURE;
         }
 
-        $client = ShopeeClient::fromConfig();
+        $mainClient = ShopeeClient::fromConfig(ShopeeToken::APP_MAIN);
         $this->info("Backfill env={$token->env} shop_id={$token->shop_id}");
 
         try {
@@ -54,7 +54,7 @@ class ShopeeBackfillCommand extends Command
                 $pageSize = max(1, min(100, (int) $this->option('page_size')));
                 $statuses = implode(', ', ShopeeProductCatalog::itemStatuses());
                 $this->info("1/4 Sync produk (termasuk arsip: {$statuses})...");
-                $productSvc = new ShopeeProductSyncService($client);
+                $productSvc = new ShopeeProductSyncService($mainClient);
                 $p = $productSvc->syncAll($token, $pageSize);
                 $this->info("   Produk: created={$p['created']} updated={$p['updated']} processed={$p['processed']}");
 
@@ -77,7 +77,7 @@ class ShopeeBackfillCommand extends Command
                 $this->info("2/4 Sync order {$from->toDateString()} → {$to->toDateString()} (auto-chunk 14 hari)...");
                 $this->warn('   Proses bisa lama jika toko sudah bertahun-tahun. Jangan interrupt.');
 
-                $o = (new ShopeeOrderSyncService($client))->syncSince(
+                $o = (new ShopeeOrderSyncService($mainClient))->syncSince(
                     $token,
                     $from->timestamp,
                     $to->timestamp
@@ -89,7 +89,8 @@ class ShopeeBackfillCommand extends Command
                 $adsDays = max(1, min(90, (int) $this->option('ads-days')));
                 $this->info("3/4 Sync iklan {$adsDays} hari terakhir (batas API Shopee ~90 hari)...");
                 try {
-                    $a = (new ShopeeAdsSyncService($client))->sync($token, $adsDays);
+                    [$adsClient, $adsToken] = $this->resolveAdsContext((int) $token->shop_id, $this->option('env'));
+                    $a = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
                     $this->info("   Ads: saved={$a['saved']} skipped={$a['skipped']}");
                 } catch (\Throwable $e) {
                     $this->warn('   Ads dilewati: ' . $e->getMessage());
@@ -99,7 +100,7 @@ class ShopeeBackfillCommand extends Command
             if (!$this->option('skip-bcg')) {
                 $this->info('4/4 Sync BCG funnel (views + konversi)...');
                 try {
-                    $b = (new ShopeeBcgSyncService($client))->sync($token);
+                    $b = (new ShopeeBcgSyncService($mainClient))->sync($token);
                     $this->info("   BCG: saved={$b['saved']} skipped={$b['skipped']}");
                 } catch (\Throwable $e) {
                     $this->warn('   BCG dilewati: ' . $e->getMessage());
@@ -126,12 +127,34 @@ class ShopeeBackfillCommand extends Command
         $env = $envOverride ?: config('shopee.env', 'test');
         $shopId = $shopIdOverride ?: config('shopee.shop_id');
 
-        $q = ShopeeToken::query()->where('env', $env);
+        $q = ShopeeToken::query()->where('env', $env)->forApp(ShopeeToken::APP_MAIN);
 
         if ($shopId) {
             $q->where('shop_id', (int) $shopId);
         }
 
         return $q->orderByDesc('id')->first();
+    }
+
+    private function resolveAdsContext(int $shopId, ?string $envOverride = null): array
+    {
+        $env = $envOverride ?: config('shopee.env', 'test');
+
+        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
+            $adsToken = ShopeeToken::query()
+                ->where('env', $env)
+                ->forApp(ShopeeToken::APP_ADS)
+                ->where('shop_id', $shopId)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$adsToken) {
+                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi token Ads untuk shop ini belum terhubung.');
+            }
+
+            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken];
+        }
+
+        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $this->getCurrentToken($env, $shopId)];
     }
 }
