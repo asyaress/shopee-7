@@ -44,7 +44,7 @@ class ShopeeAdsSyncService
         $skipped = 0;
         $errors = [];
 
-        $rows = $this->fetchRowsByChunks($token, $start, $end, $pauseSeconds);
+        $rows = $this->aggregateRowsByItemAndDate($this->fetchRowsByChunks($token, $start, $end, $pauseSeconds));
 
         if (empty($rows)) {
             return ['saved' => 0, 'skipped' => 0, 'errors' => ['Tidak ada data ads pada rentang tanggal ini.']];
@@ -92,6 +92,65 @@ class ShopeeAdsSyncService
     }
 
     /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function aggregateRowsByItemAndDate(array $rows): array
+    {
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $itemId = (string) ($row['item_id'] ?? '');
+            $date = (string) ($row['date'] ?? '');
+            if ($itemId === '' || $date === '') {
+                continue;
+            }
+
+            $key = $itemId . '|' . $date;
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'item_id' => $itemId,
+                    'date' => $date,
+                    'spend' => 0.0,
+                    'impressions' => 0,
+                    'clicks' => 0,
+                    'gmv' => 0.0,
+                    'orders' => 0,
+                    'roas' => null,
+                    'raw' => [],
+                ];
+            }
+
+            $grouped[$key]['spend'] += (float) ($row['spend'] ?? 0);
+            $grouped[$key]['impressions'] += (int) ($row['impressions'] ?? 0);
+            $grouped[$key]['clicks'] += (int) ($row['clicks'] ?? 0);
+            $grouped[$key]['gmv'] += (float) ($row['gmv'] ?? 0);
+            $grouped[$key]['orders'] += (int) ($row['orders'] ?? 0);
+
+            if (!array_key_exists('raw_sources', $grouped[$key])) {
+                $grouped[$key]['raw_sources'] = [];
+            }
+            $grouped[$key]['raw_sources'][] = $row['raw'] ?? $row;
+        }
+
+        foreach ($grouped as &$row) {
+            $row['roas'] = ($row['spend'] > 0 && $row['gmv'] > 0) ? ($row['gmv'] / $row['spend']) : null;
+            $row['raw'] = [
+                'sources' => $row['raw_sources'] ?? [],
+                'sources_count' => isset($row['raw_sources']) ? count($row['raw_sources']) : 0,
+            ];
+            unset($row['raw_sources']);
+        }
+        unset($row);
+
+        return array_values($grouped);
+    }
+
+    /**
      * Shopee ads performance endpoints only accept about 1 month per request.
      *
      * @return array<int, array<string, mixed>>
@@ -101,6 +160,8 @@ class ShopeeAdsSyncService
         $rows = [];
         $cursor = $start->copy()->startOfDay();
         $maxChunkDays = 28;
+        $campaignIds = $this->fetchProductCampaignIds($token);
+        $campaignItemMap = !empty($campaignIds) ? $this->fetchProductCampaignItemMap($token, $campaignIds) : [];
 
         while ($cursor->lte($end)) {
             $chunkStart = $cursor->copy()->startOfDay();
@@ -109,7 +170,7 @@ class ShopeeAdsSyncService
                 $chunkEnd = $end->copy();
             }
 
-            $chunkRows = $this->fetchChunkWithRetry($token, $chunkStart, $chunkEnd);
+            $chunkRows = $this->fetchChunkWithRetry($token, $chunkStart, $chunkEnd, $campaignIds, $campaignItemMap);
 
             $rows = array_merge($rows, $chunkRows);
 
@@ -126,7 +187,13 @@ class ShopeeAdsSyncService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function fetchChunkWithRetry(ShopeeToken $token, Carbon $chunkStart, Carbon $chunkEnd): array
+    private function fetchChunkWithRetry(
+        ShopeeToken $token,
+        Carbon $chunkStart,
+        Carbon $chunkEnd,
+        array $campaignIds = [],
+        array $campaignItemMap = []
+    ): array
     {
         $attempts = 0;
         $maxAttempts = 3;
@@ -134,7 +201,7 @@ class ShopeeAdsSyncService
 
         while (true) {
             try {
-                return $this->fetchChunk($token, $chunkStart, $chunkEnd);
+                return $this->fetchChunk($token, $chunkStart, $chunkEnd, $campaignIds, $campaignItemMap);
             } catch (\Throwable $e) {
                 $attempts++;
                 $message = strtolower($e->getMessage());
@@ -161,10 +228,21 @@ class ShopeeAdsSyncService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function fetchChunk(ShopeeToken $token, Carbon $chunkStart, Carbon $chunkEnd): array
+    private function fetchChunk(
+        ShopeeToken $token,
+        Carbon $chunkStart,
+        Carbon $chunkEnd,
+        array $campaignIds = [],
+        array $campaignItemMap = []
+    ): array
     {
         try {
-            return $this->fetchProductDailyPerformance($token, $chunkStart, $chunkEnd);
+            $rows = $this->fetchProductCampaignDailyRows($token, $chunkStart, $chunkEnd, $campaignIds, $campaignItemMap);
+            if (!empty($rows)) {
+                return $rows;
+            }
+
+            throw new \RuntimeException('No product-level rows returned from campaign performance API.');
         } catch (\Throwable $e) {
             Log::warning('Shopee ads product API failed, trying shop-level fallback', [
                 'start' => $chunkStart->toDateString(),
@@ -186,18 +264,256 @@ class ShopeeAdsSyncService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function fetchProductDailyPerformance(ShopeeToken $token, Carbon $start, Carbon $end): array
+    private function fetchProductCampaignDailyRows(
+        ShopeeToken $token,
+        Carbon $start,
+        Carbon $end,
+        array $campaignIds = [],
+        array $campaignItemMap = []
+    ): array
     {
+        if (empty($campaignIds)) {
+            return [];
+        }
+
         $path = config('shopee.ads_endpoints.product_daily');
+        $rows = [];
 
-        $body = [
-            'start_date' => $start->format('d-m-Y'),
-            'end_date' => $end->format('d-m-Y'),
-        ];
+        foreach (array_chunk($campaignIds, 50) as $chunk) {
+            $body = [
+                'start_date' => $start->format('d-m-Y'),
+                'end_date' => $end->format('d-m-Y'),
+                'campaign_id_list' => implode(',', $chunk),
+            ];
 
-        $response = $this->client->requestPrivate('GET', $path, $body, $token);
+            $response = $this->client->requestPrivate('GET', $path, $body, $token);
+            $rows = array_merge($rows, $this->normalizeCampaignPerformanceRows($response, $campaignItemMap));
+        }
 
-        return $this->normalizeRows($response);
+        return $rows;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fetchProductCampaignIds(ShopeeToken $token): array
+    {
+        $path = config('shopee.ads_endpoints.product_campaign_list');
+        $offset = 0;
+        $limit = 50;
+        $campaignIds = [];
+
+        while (true) {
+            $response = $this->client->requestPrivate('GET', $path, [
+                'ad_type' => 'all',
+                'offset' => $offset,
+                'limit' => $limit,
+            ], $token);
+
+            $payload = $this->responsePayload($response);
+            $items = $this->extractList($payload, [
+                'campaign_list',
+                'campaigns',
+                'list',
+                'items',
+            ]);
+
+            $count = 0;
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $campaignId = Arr::get($item, 'campaign_id') ?? Arr::get($item, 'id');
+                if ($campaignId === null || $campaignId === '') {
+                    continue;
+                }
+
+                $campaignIds[(string) $campaignId] = (string) $campaignId;
+                $count++;
+            }
+
+            $totalCount = (int) Arr::get($payload, 'total_count', 0);
+            $hasMore = (bool) Arr::get($payload, 'has_more', false);
+
+            if ($hasMore) {
+                $offset += $limit;
+                continue;
+            }
+
+            if ($totalCount > 0) {
+                $offset += $limit;
+                if ($offset >= $totalCount) {
+                    break;
+                }
+                continue;
+            }
+
+            if ($count < $limit) {
+                break;
+            }
+
+            $offset += $limit;
+        }
+
+        return array_values($campaignIds);
+    }
+
+    /**
+     * @param array<int, string> $campaignIds
+     * @return array<string, array<int, string>>
+     */
+    private function fetchProductCampaignItemMap(ShopeeToken $token, array $campaignIds): array
+    {
+        $path = config('shopee.ads_endpoints.product_campaign_setting');
+        $map = [];
+
+        foreach (array_chunk($campaignIds, 50) as $chunk) {
+            $response = $this->client->requestPrivate('GET', $path, [
+                'campaign_id_list' => implode(',', $chunk),
+            ], $token);
+
+            $payload = $this->responsePayload($response);
+            $items = $this->extractList($payload, [
+                'campaign_list',
+                'campaigns',
+                'list',
+                'items',
+            ]);
+
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $campaignId = (string) (Arr::get($item, 'campaign_id') ?? Arr::get($item, 'id') ?? '');
+                if ($campaignId === '') {
+                    continue;
+                }
+
+                $itemIds = $this->extractItemIds($item);
+                if (empty($itemIds)) {
+                    continue;
+                }
+
+                $map[$campaignId] = array_values(array_unique(array_merge($map[$campaignId] ?? [], $itemIds)));
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array<string, array<int, string>> $campaignItemMap
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeCampaignPerformanceRows(array $response, array $campaignItemMap): array
+    {
+        $payload = $this->responsePayload($response);
+        $items = $this->extractList($payload, [
+            'campaign_list',
+            'product_campaign_list',
+            'performance_list',
+            'daily_performance_list',
+            'list',
+            'rows',
+        ]);
+
+        $rows = [];
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $dateRaw = Arr::get($item, 'date')
+                ?? Arr::get($item, 'report_date')
+                ?? Arr::get($item, 'stat_date')
+                ?? Arr::get($item, 'day');
+
+            $date = $this->parseDate($dateRaw);
+            if (!$date) {
+                continue;
+            }
+
+            $spend = (float) (
+                Arr::get($item, 'expense')
+                ?? Arr::get($item, 'spend')
+                ?? Arr::get($item, 'cost')
+                ?? Arr::get($item, 'ads_expense')
+                ?? 0
+            );
+
+            $gmv = (float) (
+                Arr::get($item, 'broad_gmv')
+                ?? Arr::get($item, 'gmv')
+                ?? Arr::get($item, 'direct_gmv')
+                ?? 0
+            );
+
+            $impressions = (int) (Arr::get($item, 'impression') ?? Arr::get($item, 'impressions') ?? 0);
+            $clicks = (int) (Arr::get($item, 'click') ?? Arr::get($item, 'clicks') ?? 0);
+            $orders = (int) (Arr::get($item, 'order') ?? Arr::get($item, 'orders') ?? Arr::get($item, 'conversion') ?? 0);
+            $campaignId = (string) (Arr::get($item, 'campaign_id') ?? Arr::get($item, 'campaignid') ?? Arr::get($item, 'id') ?? '');
+            $itemId = $this->normalizeItemId(Arr::get($item, 'item_id') ?? Arr::get($item, 'product_id') ?? Arr::get($item, 'itemid'));
+
+            $roas = null;
+            if ($spend > 0 && $gmv > 0) {
+                $roas = $gmv / $spend;
+            } elseif (($r = Arr::get($item, 'roas')) !== null) {
+                $roas = (float) $r;
+            }
+
+            $baseRow = [
+                'date' => $date,
+                'spend' => abs($spend),
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'gmv' => $gmv,
+                'orders' => $orders,
+                'roas' => $roas,
+                'raw' => $item,
+            ];
+
+            if ($itemId !== '') {
+                $rows[] = $baseRow + ['item_id' => $itemId];
+                continue;
+            }
+
+            $mappedItems = $campaignId !== '' ? ($campaignItemMap[$campaignId] ?? []) : [];
+            if (empty($mappedItems)) {
+                $syntheticId = $campaignId !== '' ? 'campaign:' . $campaignId : '';
+                if ($syntheticId !== '') {
+                    $rows[] = $baseRow + [
+                        'item_id' => $syntheticId,
+                        'raw' => array_merge($item, ['campaign_id' => $campaignId, 'allocation_mode' => 'campaign_only']),
+                    ];
+                }
+                continue;
+            }
+
+            $parts = max(1, count($mappedItems));
+            foreach ($mappedItems as $index => $mappedItemId) {
+                $rows[] = [
+                    'item_id' => $mappedItemId,
+                    'date' => $date,
+                    'spend' => $this->splitDecimal($spend, $parts, 2),
+                    'impressions' => $this->splitInteger($impressions, $parts),
+                    'clicks' => $this->splitInteger($clicks, $parts),
+                    'gmv' => $this->splitDecimal($gmv, $parts, 2),
+                    'orders' => $this->splitInteger($orders, $parts),
+                    'roas' => $roas,
+                    'raw' => array_merge($item, [
+                        'campaign_id' => $campaignId,
+                        'allocation_mode' => 'equal_split',
+                        'allocation_index' => $index + 1,
+                        'allocation_total' => $parts,
+                    ]),
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -226,6 +542,100 @@ class ShopeeAdsSyncService
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
+    private function responsePayload(array $response): array
+    {
+        $payload = Arr::get($response, 'response');
+
+        return is_array($payload) ? $payload : $response;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, string> $candidates
+     * @return array<int, mixed>
+     */
+    private function extractList(array $payload, array $candidates): array
+    {
+        foreach ($candidates as $candidate) {
+            $value = Arr::get($payload, $candidate);
+            if (is_array($value) && !empty($value)) {
+                return $value;
+            }
+        }
+
+        if (is_array($payload) && array_is_list($payload)) {
+            return $payload;
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return array<int, string>
+     */
+    private function extractItemIds(array $item): array
+    {
+        $values = [
+            Arr::get($item, 'common_info.item_id_list'),
+            Arr::get($item, 'item_id_list'),
+            Arr::get($item, 'auto_product_ads_info'),
+            Arr::get($item, 'products'),
+            Arr::get($item, 'item_list'),
+        ];
+
+        $ids = [];
+        foreach ($values as $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+
+            foreach ($value as $entry) {
+                if (is_array($entry)) {
+                    $entryId = Arr::get($entry, 'item_id') ?? Arr::get($entry, 'product_id');
+                    if ($entryId !== null && $entryId !== '') {
+                        $ids[] = (string) $entryId;
+                    }
+                } elseif ($entry !== null && $entry !== '') {
+                    $ids[] = (string) $entry;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function normalizeItemId(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return (string) $value;
+    }
+
+    private function splitDecimal(float $value, int $parts, int $precision = 2): float
+    {
+        if ($parts <= 1) {
+            return round($value, $precision);
+        }
+
+        return round($value / $parts, $precision);
+    }
+
+    private function splitInteger(int $value, int $parts): int
+    {
+        if ($parts <= 1) {
+            return $value;
+        }
+
+        return (int) round($value / $parts);
     }
 
     /**

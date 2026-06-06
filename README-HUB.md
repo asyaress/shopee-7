@@ -45,4 +45,4 @@ ROAS = Gross / Ads spend
 
 ## Cron
 
-Scheduler sudah mencakup `shopee:sync-ads` harian jam 02:30 (jika `schedule:run` aktif).
+Scheduler sudah mencakup `shopee:sync-ads --days=1` tiap 10 menit (jika `schedule:run` aktif).

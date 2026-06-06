@@ -30,6 +30,10 @@ class Kernel extends ConsoleKernel
             ->everyThirtyMinutes()
             ->withoutOverlapping(30);
 
+        $schedule->command('shopee:sync-ads --days=1 --pause=1')
+            ->everyTenMinutes()
+            ->withoutOverlapping(12);
+
         $schedule->command('ceo:check-alerts')
             ->dailyAt('08:00');
             
