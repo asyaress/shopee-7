@@ -30,7 +30,11 @@ class ShopeeClient
         $buffer = (int) config('shopee.refresh_buffer', 300);
 
         if (!$partnerId || $partnerKey === '') {
-            $prefix = $appType === 'ads' ? 'SHOPEE_ADS_' : 'SHOPEE_';
+            $prefix = match ($appType) {
+                'ads' => 'SHOPEE_ADS_',
+                'ams' => 'SHOPEE_AMS_',
+                default => 'SHOPEE_',
+            };
             throw new \RuntimeException("Shopee {$appType} credentials are not configured. Set {$prefix}PARTNER_ID & {$prefix}PARTNER_KEY.");
         }
 

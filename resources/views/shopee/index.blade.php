@@ -11,10 +11,12 @@
         'meta' => [
             ['icon' => 'fa-server', 'text' => 'ENV: ' . strtoupper($env)],
             ['icon' => 'fa-circle', 'text' => $mainToken ? 'Main App: Terhubung' : 'Main App: Belum connect'],
-            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'AMS App: Terhubung' : 'AMS App: Belum connect') : 'AMS App: Opsional'],
+            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'Ads App: Terhubung' : 'Ads App: Belum connect') : 'Ads App: Opsional'],
+            ['icon' => 'fa-chart-line', 'text' => ($amsConfigured ?? false) ? (($amsToken ?? null) ? 'AMS App: Terhubung' : 'AMS App: Belum connect') : 'AMS App: Opsional'],
         ],
         'actions' => ($mainToken ? '' : '<a href="' . route('shopee.connect') . '" class="hub-btn hub-btn-primary" style="background:#fff;color:var(--maroon-800)!important;"><i class="fas fa-link"></i> Connect Main App</a>')
-            . (($adsConfigured ?? false) ? '<a href="' . route('shopee.connect.app', ['appType' => 'ads']) . '" class="hub-btn hub-btn-primary" style="background:#fff;color:var(--maroon-800)!important;"><i class="fas fa-bullhorn"></i> ' . (($adsToken ?? null) ? 'Reconnect AMS App' : 'Connect AMS App') . '</a>' : '')
+            . (($adsConfigured ?? false) ? '<a href="' . route('shopee.connect.app', ['appType' => 'ads']) . '" class="hub-btn hub-btn-primary" style="background:#fff;color:var(--maroon-800)!important;"><i class="fas fa-bullhorn"></i> ' . (($adsToken ?? null) ? 'Reconnect Ads App' : 'Connect Ads App') . '</a>' : '')
+            . (($amsConfigured ?? false) ? '<a href="' . route('shopee.connect.app', ['appType' => 'ams']) . '" class="hub-btn hub-btn-primary" style="background:#fff;color:var(--maroon-800)!important;"><i class="fas fa-chart-line"></i> ' . (($amsToken ?? null) ? 'Reconnect AMS App' : 'Connect AMS App') . '</a>' : '')
             . '<a href="' . route('manage.index') . '" class="hub-btn hub-btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)"><i class="fas fa-database"></i> Kelola Data</a>',
     ])
 
@@ -30,10 +32,17 @@
                         <tr><td class="text-muted py-2">Main token diperoleh</td><td class="text-end">{{ optional($mainToken->obtained_at)->format('d M Y H:i') ?? '-' }}</td></tr>
                         <tr><td class="text-muted py-2">Main kadaluarsa</td><td class="text-end">{{ optional($mainToken->expire_at)->format('d M Y H:i') ?? '-' }}</td></tr>
                         @if($adsConfigured ?? false)
-                        <tr><td class="text-muted py-2">AMS status</td><td class="text-end">{{ ($adsToken ?? null) ? 'Connected' : 'Belum connect' }}</td></tr>
+                        <tr><td class="text-muted py-2">Ads status</td><td class="text-end">{{ ($adsToken ?? null) ? 'Connected' : 'Belum connect' }}</td></tr>
                         @if(($adsToken ?? null))
-                        <tr><td class="text-muted py-2">AMS Partner ID</td><td class="text-end">{{ $adsToken->partner_id }}</td></tr>
-                        <tr><td class="text-muted py-2">AMS kadaluarsa</td><td class="text-end">{{ optional($adsToken->expire_at)->format('d M Y H:i') ?? '-' }}</td></tr>
+                        <tr><td class="text-muted py-2">Ads Partner ID</td><td class="text-end">{{ $adsToken->partner_id }}</td></tr>
+                        <tr><td class="text-muted py-2">Ads kadaluarsa</td><td class="text-end">{{ optional($adsToken->expire_at)->format('d M Y H:i') ?? '-' }}</td></tr>
+                        @endif
+                        @endif
+                        @if($amsConfigured ?? false)
+                        <tr><td class="text-muted py-2">AMS status</td><td class="text-end">{{ ($amsToken ?? null) ? 'Connected' : 'Belum connect' }}</td></tr>
+                        @if(($amsToken ?? null))
+                        <tr><td class="text-muted py-2">AMS Partner ID</td><td class="text-end">{{ $amsToken->partner_id }}</td></tr>
+                        <tr><td class="text-muted py-2">AMS kadaluarsa</td><td class="text-end">{{ optional($amsToken->expire_at)->format('d M Y H:i') ?? '-' }}</td></tr>
                         @endif
                         @endif
                     </table>
@@ -45,9 +54,16 @@
                             <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm text-danger"><i class="fas fa-unlink"></i> Putus Main App</button>
                         </form>
                         @if(($adsToken ?? null))
-                        <form method="POST" action="{{ route('shopee.disconnect.app', ['appType' => 'ads']) }}" onsubmit="return confirm('Putus koneksi AMS App?');">
+                        <form method="POST" action="{{ route('shopee.disconnect.app', ['appType' => 'ads']) }}" onsubmit="return confirm('Putus koneksi Ads App?');">
                             @csrf
                             <input type="hidden" name="shop_id" value="{{ $adsToken->shop_id }}">
+                            <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm text-danger"><i class="fas fa-unlink"></i> Putus Ads App</button>
+                        </form>
+                        @endif
+                        @if(($amsToken ?? null))
+                        <form method="POST" action="{{ route('shopee.disconnect.app', ['appType' => 'ams']) }}" onsubmit="return confirm('Putus koneksi AMS App?');">
+                            @csrf
+                            <input type="hidden" name="shop_id" value="{{ $amsToken->shop_id }}">
                             <button type="submit" class="hub-btn hub-btn-outline hub-btn-sm text-danger"><i class="fas fa-unlink"></i> Putus AMS App</button>
                         </form>
                         @endif
@@ -56,21 +72,43 @@
                     <div class="report-insight info mt-3 mb-0">
                         <div class="icon"><i class="fas fa-bullhorn"></i></div>
                         <div>
-                            <strong>Affiliate / AMS App</strong>
+                            <strong>Ads App</strong>
                             @if($adsConfigured ?? false)
-                                <p class="mb-2 small">Hubungkan app AMS untuk menarik data iklan Shopee. Ini terpisah dari Main App order/produk.</p>
+                                <p class="mb-2 small">Hubungkan Ads App untuk endpoint marketing/ads Shopee. Ini terpisah dari Main App order/produk.</p>
                                 <div class="d-flex flex-wrap gap-2">
                                     <a href="{{ route('shopee.connect.app', ['appType' => 'ads']) }}" class="hub-btn hub-btn-outline hub-btn-sm">
-                                        <i class="fas fa-bullhorn"></i> {{ ($adsToken ?? null) ? 'Reconnect AMS App' : 'Connect AMS App' }}
+                                        <i class="fas fa-bullhorn"></i> {{ ($adsToken ?? null) ? 'Reconnect Ads App' : 'Connect Ads App' }}
                                     </a>
                                     @if(($adsToken ?? null))
+                                        <span class="hub-pill hub-pill-success align-self-center">Ads sudah terhubung</span>
+                                    @else
+                                        <span class="hub-pill hub-pill-warning align-self-center">Ads belum terhubung</span>
+                                    @endif
+                                </div>
+                            @else
+                                <p class="mb-0 small">Credential Ads App belum diisi di <code>.env</code>. Isi <code>SHOPEE_ADS_PARTNER_ID</code>, <code>SHOPEE_ADS_PARTNER_KEY</code>, dan <code>SHOPEE_ADS_REDIRECT_URL</code> dulu supaya tombol connect aktif.</p>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="report-insight info mt-3 mb-0">
+                        <div class="icon"><i class="fas fa-chart-line"></i></div>
+                        <div>
+                            <strong>AMS App</strong>
+                            @if($amsConfigured ?? false)
+                                <p class="mb-2 small">Hubungkan AMS App untuk endpoint Affiliate Marketing Solution Management Shopee.</p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <a href="{{ route('shopee.connect.app', ['appType' => 'ams']) }}" class="hub-btn hub-btn-outline hub-btn-sm">
+                                        <i class="fas fa-chart-line"></i> {{ ($amsToken ?? null) ? 'Reconnect AMS App' : 'Connect AMS App' }}
+                                    </a>
+                                    @if(($amsToken ?? null))
                                         <span class="hub-pill hub-pill-success align-self-center">AMS sudah terhubung</span>
                                     @else
                                         <span class="hub-pill hub-pill-warning align-self-center">AMS belum terhubung</span>
                                     @endif
                                 </div>
                             @else
-                                <p class="mb-0 small">Credential AMS belum diisi di <code>.env</code>. Isi <code>SHOPEE_ADS_PARTNER_ID</code>, <code>SHOPEE_ADS_PARTNER_KEY</code>, dan <code>SHOPEE_ADS_REDIRECT_URL</code> dulu supaya tombol connect aktif.</p>
+                                <p class="mb-0 small">Credential AMS App belum diisi di <code>.env</code>. Isi <code>SHOPEE_AMS_PARTNER_ID</code>, <code>SHOPEE_AMS_PARTNER_KEY</code>, dan <code>SHOPEE_AMS_REDIRECT_URL</code> dulu supaya tombol connect aktif.</p>
                             @endif
                         </div>
                     </div>
@@ -83,14 +121,29 @@
                     <div class="report-insight info mt-3 mb-0">
                         <div class="icon"><i class="fas fa-bullhorn"></i></div>
                         <div>
-                            <strong>Affiliate / AMS App</strong>
+                            <strong>Ads App</strong>
                             @if($adsConfigured ?? false)
-                                <p class="mb-2 small">Credential AMS sudah tersedia. Kamu bisa langsung hubungkan app AMS dari halaman ini.</p>
+                                <p class="mb-2 small">Credential Ads App sudah tersedia. Kamu bisa langsung hubungkan app Ads dari halaman ini.</p>
                                 <a href="{{ route('shopee.connect.app', ['appType' => 'ads']) }}" class="hub-btn hub-btn-outline hub-btn-sm">
-                                    <i class="fas fa-bullhorn"></i> Connect AMS App
+                                    <i class="fas fa-bullhorn"></i> Connect Ads App
                                 </a>
                             @else
-                                <p class="mb-0 small">Credential AMS belum diisi di <code>.env</code>. Isi <code>SHOPEE_ADS_*</code> dulu supaya tombol connect AMS muncul aktif.</p>
+                                <p class="mb-0 small">Credential Ads App belum diisi di <code>.env</code>. Isi <code>SHOPEE_ADS_*</code> dulu supaya tombol connect Ads muncul aktif.</p>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="report-insight info mt-3 mb-0">
+                        <div class="icon"><i class="fas fa-chart-line"></i></div>
+                        <div>
+                            <strong>AMS App</strong>
+                            @if($amsConfigured ?? false)
+                                <p class="mb-2 small">Credential AMS App sudah tersedia. Kamu bisa langsung hubungkan app AMS dari halaman ini.</p>
+                                <a href="{{ route('shopee.connect.app', ['appType' => 'ams']) }}" class="hub-btn hub-btn-outline hub-btn-sm">
+                                    <i class="fas fa-chart-line"></i> Connect AMS App
+                                </a>
+                            @else
+                                <p class="mb-0 small">Credential AMS App belum diisi di <code>.env</code>. Isi <code>SHOPEE_AMS_*</code> dulu supaya tombol connect AMS muncul aktif.</p>
                             @endif
                         </div>
                     </div>
@@ -135,8 +188,8 @@
                     <div class="report-insight info mt-2 mb-0">
                         <div class="icon"><i class="fas fa-bullhorn"></i></div>
                         <div>
-                            <strong>AMS App terpisah</strong>
-                            <p class="mb-0 small">Main App untuk order/produk. App kedua untuk data iklan butuh kategori Shopee <em>Affiliate Marketing Solution Management</em> + credential <code>SHOPEE_ADS_*</code> di .env. Klik <strong>Connect AMS App</strong> sekali. Data yang tersimpan saat ini masih level <code>item_id</code> produk, belum dipecah per <code>model_id</code> variasi.</p>
+                            <strong>Ads + AMS App terpisah</strong>
+                            <p class="mb-0 small">Main App untuk order/produk. Sync iklan sekarang bisa memakai kombinasi <code>Ads App</code> untuk endpoint marketing dan <code>AMS App</code> untuk endpoint affiliate marketing. Data yang tersimpan saat ini masih level <code>item_id</code> produk, belum dipecah per <code>model_id</code> variasi.</p>
                         </div>
                     </div>
                     @endif

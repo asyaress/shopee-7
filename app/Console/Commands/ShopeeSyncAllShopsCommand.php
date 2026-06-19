@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ShopeeToken;
+use App\Services\Shopee\ShopeeAppContextResolver;
 use App\Services\Shopee\ShopeeAdsSyncService;
 use App\Services\Shopee\ShopeeBcgSyncService;
 use App\Services\Shopee\ShopeeClient;
@@ -50,9 +51,10 @@ class ShopeeSyncAllShopsCommand extends Command
                 $o = (new ShopeeOrderSyncService($mainClient))->syncRecent($token, $days);
                 $this->line("  Orders C{$o['created']} U{$o['updated']}");
 
-                [$adsClient, $adsToken] = $this->resolveAdsContext((int) $token->shop_id, $env);
-                $a = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
-                $this->line("  Ads saved={$a['saved']}");
+                [$adsService, $syncToken, $adsSources] = (new ShopeeAppContextResolver())
+                    ->buildAdsSyncService((int) $token->shop_id, $env);
+                $a = $adsService->sync($syncToken, $adsDays);
+                $this->line("  Ads {$adsSources} saved={$a['saved']}");
 
                 $b = (new ShopeeBcgSyncService($mainClient))->sync($token);
                 $this->line("  BCG saved={$b['saved']} skipped={$b['skipped']}");
@@ -63,36 +65,5 @@ class ShopeeSyncAllShopsCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    private function resolveAdsContext(int $shopId, string $env): array
-    {
-        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
-            $adsToken = ShopeeToken::query()
-                ->where('env', $env)
-                ->forApp(ShopeeToken::APP_ADS)
-                ->where('shop_id', $shopId)
-                ->orderByDesc('id')
-                ->first();
-
-            if (!$adsToken) {
-                throw new \RuntimeException('Token Ads Service untuk shop ini belum terhubung.');
-            }
-
-            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken];
-        }
-
-        $mainToken = ShopeeToken::query()
-            ->where('env', $env)
-            ->forApp(ShopeeToken::APP_MAIN)
-            ->where('shop_id', $shopId)
-            ->orderByDesc('id')
-            ->first();
-
-        if (!$mainToken) {
-            throw new \RuntimeException('Token Main App tidak ditemukan.');
-        }
-
-        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken];
     }
 }

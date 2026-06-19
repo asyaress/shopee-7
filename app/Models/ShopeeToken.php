@@ -9,6 +9,7 @@ class ShopeeToken extends Model
 {
     public const APP_MAIN = 'main';
     public const APP_ADS = 'ads';
+    public const APP_AMS = 'ams';
 
     protected $table = 'shopee_tokens';
 
@@ -34,7 +35,7 @@ class ShopeeToken extends Model
     public function scopeForApp($query, string $appType = self::APP_MAIN)
     {
         if (!Schema::hasColumn($this->getTable(), 'app_type')) {
-            return $appType === self::APP_ADS ? $query->whereRaw('1 = 0') : $query;
+            return $appType === self::APP_MAIN ? $query : $query->whereRaw('1 = 0');
         }
 
         return $query->where('app_type', $appType);

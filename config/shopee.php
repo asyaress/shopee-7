@@ -10,8 +10,8 @@ return [
     'partner_id' => (int) env('SHOPEE_PARTNER_ID'),
     'partner_key' => env('SHOPEE_PARTNER_KEY'),
 
-    // App credentials. "main" is used for orders/products/financials,
-    // while "ads" can use a separate Shopee app with AMS / Affiliate Marketing Solution Management category.
+    // App credentials. "main" is used for orders/products/financials.
+    // "ads" is for Marketing/Ads endpoints, while "ams" is for Affiliate Marketing Solution Management endpoints.
     'apps' => [
         'main' => [
             'label' => 'Main App',
@@ -20,10 +20,16 @@ return [
             'redirect_url' => env('SHOPEE_REDIRECT_URL'),
         ],
         'ads' => [
-            'label' => 'Affiliate/AMS App',
+            'label' => 'Ads App',
             'partner_id' => (int) env('SHOPEE_ADS_PARTNER_ID'),
             'partner_key' => env('SHOPEE_ADS_PARTNER_KEY'),
             'redirect_url' => env('SHOPEE_ADS_REDIRECT_URL', env('SHOPEE_REDIRECT_URL')),
+        ],
+        'ams' => [
+            'label' => 'AMS App',
+            'partner_id' => (int) env('SHOPEE_AMS_PARTNER_ID'),
+            'partner_key' => env('SHOPEE_AMS_PARTNER_KEY'),
+            'redirect_url' => env('SHOPEE_AMS_REDIRECT_URL', env('SHOPEE_REDIRECT_URL')),
         ],
     ],
 

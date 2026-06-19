@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ShopeeToken;
+use App\Services\Shopee\ShopeeAppContextResolver;
 use App\Services\Shopee\ShopeeAdsSyncService;
 use App\Services\Shopee\ShopeeBcgSyncService;
 use App\Services\Shopee\ShopeeClient;
@@ -89,9 +90,10 @@ class ShopeeBackfillCommand extends Command
                 $adsDays = max(1, min(90, (int) $this->option('ads-days')));
                 $this->info("3/4 Sync iklan {$adsDays} hari terakhir (batas API Shopee ~90 hari)...");
                 try {
-                    [$adsClient, $adsToken] = $this->resolveAdsContext((int) $token->shop_id, $this->option('env'));
-                    $a = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
-                    $this->info("   Ads: saved={$a['saved']} skipped={$a['skipped']}");
+                    [$adsService, $syncToken, $adsSources] = (new ShopeeAppContextResolver())
+                        ->buildAdsSyncService((int) $token->shop_id, $this->option('env'));
+                    $a = $adsService->sync($syncToken, $adsDays);
+                    $this->info("   Ads ({$adsSources}): saved={$a['saved']} skipped={$a['skipped']}");
                 } catch (\Throwable $e) {
                     $this->warn('   Ads dilewati: ' . $e->getMessage());
                 }
@@ -134,27 +136,5 @@ class ShopeeBackfillCommand extends Command
         }
 
         return $q->orderByDesc('id')->first();
-    }
-
-    private function resolveAdsContext(int $shopId, ?string $envOverride = null): array
-    {
-        $env = $envOverride ?: config('shopee.env', 'test');
-
-        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
-            $adsToken = ShopeeToken::query()
-                ->where('env', $env)
-                ->forApp(ShopeeToken::APP_ADS)
-                ->where('shop_id', $shopId)
-                ->orderByDesc('id')
-                ->first();
-
-            if (!$adsToken) {
-                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi token Ads untuk shop ini belum terhubung.');
-            }
-
-            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken];
-        }
-
-        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $this->getCurrentToken($env, $shopId)];
     }
 }

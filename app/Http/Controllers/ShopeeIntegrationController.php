@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ShopeeToken;
+use App\Services\Shopee\ShopeeAppContextResolver;
 use App\Services\Shopee\ShopeeClient;
 use App\Services\Shopee\ShopeeAdsSyncService;
 use App\Services\Shopee\ShopeeOrderSyncService;
@@ -19,15 +20,21 @@ class ShopeeIntegrationController extends Controller
 {
     public function index(): View
     {
+        $resolver = new ShopeeAppContextResolver();
         $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN);
+        $shopId = (int) ($mainToken?->shop_id ?: (\App\Support\ShopeeShopContext::shopId() ?: config('shopee.shop_id')));
         $adsConfigured = ShopeeClient::isConfigured(ShopeeToken::APP_ADS);
-        $adsToken = $adsConfigured ? $this->getCurrentToken(ShopeeToken::APP_ADS) : null;
+        $amsConfigured = ShopeeClient::isConfigured(ShopeeToken::APP_AMS);
+        $adsToken = $adsConfigured ? $resolver->token(ShopeeToken::APP_ADS, null, $shopId) : null;
+        $amsToken = $amsConfigured ? $resolver->token(ShopeeToken::APP_AMS, null, $shopId) : null;
 
         return view('shopee.index', [
             'token' => $mainToken,
             'mainToken' => $mainToken,
             'adsToken' => $adsToken,
+            'amsToken' => $amsToken,
             'adsConfigured' => $adsConfigured,
+            'amsConfigured' => $amsConfigured,
             'env' => config('shopee.env', 'test'),
         ]);
     }
@@ -98,7 +105,7 @@ class ShopeeIntegrationController extends Controller
                 }
             }
 
-            throw new \RuntimeException('Gagal connect Shopee: aplikasi main/ads tidak cocok dengan code OAuth ini.');
+            throw new \RuntimeException('Gagal connect Shopee: aplikasi main/ads/ams tidak cocok dengan code OAuth ini.');
         } catch (\Throwable $e) {
             Log::error('Shopee OAuth callback failed', [
                 'shop_id' => $shopId,
@@ -192,16 +199,17 @@ class ShopeeIntegrationController extends Controller
         }
 
         try {
-            [$adsClient, $adsToken, $appType] = $this->resolveAdsContext((int) $mainToken->shop_id);
+            [$service, $syncToken, $appSources] = (new ShopeeAppContextResolver())
+                ->buildAdsSyncService((int) $mainToken->shop_id);
             $days = max(1, min(90, (int) $request->input('ads_days', config('shopee.ads_sync_days', 30))));
-            $summary = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $days);
+            $summary = $service->sync($syncToken, $days);
         } catch (\Throwable $e) {
             return redirect()->route('shopee.index')
                 ->with('error', 'Gagal sync ads: ' . $e->getMessage());
         }
 
         return redirect()->route('shopee.index')
-            ->with('success', "Sync ads selesai ({$appType}). Saved: {$summary['saved']}, Skipped: {$summary['skipped']}");
+            ->with('success', "Sync ads selesai ({$appSources}). Saved: {$summary['saved']}, Skipped: {$summary['skipped']}");
     }
 
     public function syncAll(Request $request): RedirectResponse
@@ -227,9 +235,10 @@ class ShopeeIntegrationController extends Controller
 
             try {
                 $adsDays = (int) config('shopee.ads_sync_days', 30);
-                [$adsClient, $adsToken, $adsAppType] = $this->resolveAdsContext((int) $mainToken->shop_id);
-                $adsSummary = (new ShopeeAdsSyncService($adsClient))->sync($adsToken, $adsDays);
-                $adsMsg = " Ads: saved={$adsSummary['saved']}.";
+                [$adsService, $syncToken, $adsSources] = (new ShopeeAppContextResolver())
+                    ->buildAdsSyncService((int) $mainToken->shop_id);
+                $adsSummary = $adsService->sync($syncToken, $adsDays);
+                $adsMsg = " Ads ({$adsSources}): saved={$adsSummary['saved']}.";
             } catch (\Throwable $adsEx) {
                 $adsMsg = ' Ads: ' . $adsEx->getMessage();
             }
@@ -259,33 +268,22 @@ class ShopeeIntegrationController extends Controller
         return $q->orderByDesc('id')->first();
     }
 
-    private function resolveAdsContext(int $shopId): array
-    {
-        if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
-            $adsToken = $this->getCurrentToken(ShopeeToken::APP_ADS, $shopId);
-            if (!$adsToken) {
-                throw new \RuntimeException('App Ads Service sudah diisi di .env, tapi toko ini belum di-connect ke app Ads Service.');
-            }
-
-            return [ShopeeClient::fromConfig(ShopeeToken::APP_ADS), $adsToken, ShopeeToken::APP_ADS];
-        }
-
-        $mainToken = $this->getCurrentToken(ShopeeToken::APP_MAIN, $shopId);
-        if (!$mainToken) {
-            throw new \RuntimeException('Belum ada token Shopee Main App.');
-        }
-
-        return [ShopeeClient::fromConfig(ShopeeToken::APP_MAIN), $mainToken, ShopeeToken::APP_MAIN];
-    }
-
     private function normalizeAppType(string $appType): string
     {
-        return $appType === ShopeeToken::APP_ADS ? ShopeeToken::APP_ADS : ShopeeToken::APP_MAIN;
+        return match ($appType) {
+            ShopeeToken::APP_ADS => ShopeeToken::APP_ADS,
+            ShopeeToken::APP_AMS => ShopeeToken::APP_AMS,
+            default => ShopeeToken::APP_MAIN,
+        };
     }
 
     private function appLabel(string $appType): string
     {
-        return $appType === ShopeeToken::APP_ADS ? 'Affiliate/AMS App' : 'Main App';
+        return match ($appType) {
+            ShopeeToken::APP_ADS => 'Ads App',
+            ShopeeToken::APP_AMS => 'AMS App',
+            default => 'Main App',
+        };
     }
 
     private function buildState(string $appType, string $csrf): string
@@ -320,7 +318,7 @@ class ShopeeIntegrationController extends Controller
         $candidates = [];
         $parsed = $this->parseAppTypeFromState($state);
 
-        foreach ([$parsed, ShopeeToken::APP_MAIN, ShopeeToken::APP_ADS] as $appType) {
+        foreach ([$parsed, ShopeeToken::APP_MAIN, ShopeeToken::APP_ADS, ShopeeToken::APP_AMS] as $appType) {
             $appType = $this->normalizeAppType($appType);
             if (!ShopeeClient::isConfigured($appType)) {
                 continue;

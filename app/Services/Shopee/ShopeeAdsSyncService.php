@@ -12,7 +12,11 @@ use Illuminate\Support\Facades\Log;
 class ShopeeAdsSyncService
 {
     public function __construct(
-        private readonly ShopeeClient $client,
+        private readonly ShopeeClient $defaultClient,
+        private readonly ?ShopeeClient $adsClient = null,
+        private readonly ?ShopeeToken $adsToken = null,
+        private readonly ?ShopeeClient $amsClient = null,
+        private readonly ?ShopeeToken $amsToken = null,
     ) {
     }
 
@@ -284,7 +288,7 @@ class ShopeeAdsSyncService
         while ($cursor->lte($chunkEnd)) {
             $pageNo = 1;
             while (true) {
-                $response = $this->client->requestPrivate('GET', $path, [
+                $response = $this->requestPrivate('GET', $path, [
                     'period_type' => 'Day',
                     'start_date' => $cursor->format('Ymd'),
                     'end_date' => $cursor->format('Ymd'),
@@ -384,7 +388,7 @@ class ShopeeAdsSyncService
                 'campaign_id_list' => implode(',', $chunk),
             ];
 
-            $response = $this->client->requestPrivate('GET', $path, $body, $token);
+            $response = $this->requestPrivate('GET', $path, $body, $token);
             $rows = array_merge($rows, $this->normalizeCampaignPerformanceRows($response, $campaignItemMap));
         }
 
@@ -402,7 +406,7 @@ class ShopeeAdsSyncService
         $pageSize = 100;
 
         while (true) {
-            $response = $this->client->requestPrivate('GET', $path, [
+            $response = $this->requestPrivate('GET', $path, [
                 'period_type' => 'Day',
                 'start_date' => $start->format('Ymd'),
                 'end_date' => $end->format('Ymd'),
@@ -494,7 +498,7 @@ class ShopeeAdsSyncService
         $campaignIds = [];
 
         while (true) {
-            $response = $this->client->requestPrivate('GET', $path, [
+            $response = $this->requestPrivate('GET', $path, [
                 'ad_type' => 'all',
                 'offset' => $offset,
                 'limit' => $limit,
@@ -561,7 +565,7 @@ class ShopeeAdsSyncService
         $map = [];
 
         foreach (array_chunk($campaignIds, 50) as $chunk) {
-            $response = $this->client->requestPrivate('GET', $path, [
+            $response = $this->requestPrivate('GET', $path, [
                 'campaign_id_list' => implode(',', $chunk),
                 'info_type_list' => $infoTypeList,
             ], $token);
@@ -628,7 +632,7 @@ class ShopeeAdsSyncService
                 $params['cursor'] = $cursor;
             }
 
-            $response = $this->client->requestPrivate('GET', $path, $params, $token);
+            $response = $this->requestPrivate('GET', $path, $params, $token);
             $payload = $this->responsePayload($response);
             $items = $this->extractList($payload, ['item_list', 'products', 'product_list', 'list', 'items']);
 
@@ -791,7 +795,7 @@ class ShopeeAdsSyncService
             'end_date' => $end->format('d-m-Y'),
         ];
 
-        $response = $this->client->requestPrivate('GET', $path, $body, $token);
+        $response = $this->requestPrivate('GET', $path, $body, $token);
 
         $rows = $this->normalizeRows($response);
 
@@ -803,6 +807,29 @@ class ShopeeAdsSyncService
         }
 
         return $rows;
+    }
+
+    private function requestPrivate(string $method, string $path, array $params, ShopeeToken $fallbackToken): array
+    {
+        [$client, $token] = $this->resolveContextForPath($path, $fallbackToken);
+
+        return $client->requestPrivate($method, $path, $params, $token);
+    }
+
+    /**
+     * @return array{0:ShopeeClient,1:ShopeeToken}
+     */
+    private function resolveContextForPath(string $path, ShopeeToken $fallbackToken): array
+    {
+        if (str_starts_with($path, '/api/v2/ams/') && $this->amsClient && $this->amsToken) {
+            return [$this->amsClient, $this->amsToken];
+        }
+
+        if (str_starts_with($path, '/api/v2/ads/') && $this->adsClient && $this->adsToken) {
+            return [$this->adsClient, $this->adsToken];
+        }
+
+        return [$this->defaultClient, $fallbackToken];
     }
 
     /**
