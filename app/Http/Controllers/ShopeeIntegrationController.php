@@ -285,7 +285,7 @@ class ShopeeIntegrationController extends Controller
 
     private function appLabel(string $appType): string
     {
-        return $appType === ShopeeToken::APP_ADS ? 'Ads Service' : 'Main App';
+        return $appType === ShopeeToken::APP_ADS ? 'Affiliate/AMS App' : 'Main App';
     }
 
     private function buildState(string $appType, string $csrf): string

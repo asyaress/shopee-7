@@ -16,7 +16,7 @@
         'meta' => [
             ['icon' => 'fa-clock', 'text' => 'Diperbarui ' . ($meta['generated_at'] ?? now()->format('d M Y H:i'))],
             ['icon' => 'fa-store', 'text' => $token ? 'Shop ' . $token->shop_id : 'Belum terhubung'],
-            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'Ads Service connected' : 'Ads Service belum connect') : 'Ads Service opsional'],
+            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'AMS App connected' : 'AMS App belum connect') : 'AMS App opsional'],
         ],
         'actions' => '<a href="' . route('monitoring.index') . '" class="hub-btn hub-btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)"><i class="fas fa-chart-line"></i> Monitoring</a>',
     ])
@@ -86,14 +86,14 @@
                             <tr><td class="text-muted py-1">Main App expire</td><td class="text-end">{{ $mainToken->expire_at->format('d M Y H:i') }}</td></tr>
                             @endif
                             @if(($adsToken ?? null)?->expire_at)
-                            <tr><td class="text-muted py-1">Ads App expire</td><td class="text-end">{{ $adsToken->expire_at->format('d M Y H:i') }}</td></tr>
+                            <tr><td class="text-muted py-1">AMS App expire</td><td class="text-end">{{ $adsToken->expire_at->format('d M Y H:i') }}</td></tr>
                             @endif
                         </table>
                     </div>
                     <div class="d-flex gap-2 flex-wrap mb-3">
                         <a href="{{ route('shopee.connect') }}" class="hub-btn hub-btn-outline hub-btn-sm"><i class="fas fa-link"></i> Reconnect Main App</a>
                         @if($adsConfigured ?? false)
-                        <a href="{{ route('shopee.connect.app', ['appType' => 'ads']) }}" class="hub-btn hub-btn-outline hub-btn-sm"><i class="fas fa-bullhorn"></i> {{ ($adsToken ?? null) ? 'Reconnect Ads App' : 'Connect Ads App' }}</a>
+                        <a href="{{ route('shopee.connect.app', ['appType' => 'ads']) }}" class="hub-btn hub-btn-outline hub-btn-sm"><i class="fas fa-bullhorn"></i> {{ ($adsToken ?? null) ? 'Reconnect AMS App' : 'Connect AMS App' }}</a>
                         @endif
                     </div>
                     <div class="sync-action-grid">
@@ -127,7 +127,7 @@
                             <button type="submit" class="hub-btn hub-btn-primary hub-btn-sm w-100 mt-2">Jalankan</button>
                         </form>
                     </div>
-                    <p class="small text-muted mb-0 mt-2"><i class="fas fa-info-circle me-1"></i> Order/produk tetap pakai Main App. Jika env Ads diisi, sync iklan otomatis memakai Ads Service App.</p>
+                    <p class="small text-muted mb-0 mt-2"><i class="fas fa-info-circle me-1"></i> Order/produk tetap pakai Main App. Jika env Ads diisi, sync iklan otomatis memakai Affiliate/AMS App. Penyimpanan ads saat ini masih level item produk, bukan level variasi/model.</p>
                     @else
                     <p class="mb-3">Hubungkan toko Shopee untuk mulai menarik data otomatis.</p>
                     <a href="{{ route('shopee.connect') }}" class="hub-btn hub-btn-primary"><i class="fas fa-link"></i> Connect Main App</a>
