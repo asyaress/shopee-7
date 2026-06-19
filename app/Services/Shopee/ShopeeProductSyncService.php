@@ -164,7 +164,9 @@ class ShopeeProductSyncService
                 'name' => $name,
                 'description' => is_string($desc) ? $desc : null,
                 'category' => (string) (Arr::get($it, 'category_id') ?? Arr::get($it, 'category') ?? null),
-                'base_price' => $basePrice,
+                // Variant prices are fetched below. Keep the last known price when
+                // base info omits price or the model endpoint is temporarily down.
+                'base_price' => $basePrice ?? $product->base_price,
                 'unit' => $product->unit ?: 'pcs',
                 'is_active' => $isActive,
                 'external_platform' => 'shopee',
@@ -190,13 +192,17 @@ class ShopeeProductSyncService
             }
 
             // Sync variants best-effort (some shops might not have access)
-            $this->syncVariantsBestEffort($token, $product, (int) $itemId);
+            $modelPrice = $this->syncVariantsBestEffort($token, $product, (int) $itemId);
+            if ($modelPrice !== null) {
+                $product->base_price = $modelPrice;
+                $product->save();
+            }
         });
 
         return [$created, $updated];
     }
 
-    private function syncVariantsBestEffort(ShopeeToken $token, Product $product, int $itemId): void
+    private function syncVariantsBestEffort(ShopeeToken $token, Product $product, int $itemId): ?float
     {
         try {
             $resp = $this->client->requestPrivate('GET', '/api/v2/product/get_model_list', [
@@ -205,6 +211,7 @@ class ShopeeProductSyncService
 
             $models = Arr::get($resp, 'model', Arr::get($resp, 'model_list', []));
             $models = is_array($models) ? $models : [];
+            $modelPrices = [];
 
             foreach ($models as $m) {
                 $modelId = Arr::get($m, 'model_id');
@@ -213,6 +220,9 @@ class ShopeeProductSyncService
                 }
 
                 $price = $this->resolvePrice($m);
+                if ($price !== null) {
+                    $modelPrices[] = $price;
+                }
                 $stock = Arr::get($m, 'stock_info_v2.summary_info.total_available_stock')
                     ?? Arr::get($m, 'stock')
                     ?? null;
@@ -229,11 +239,15 @@ class ShopeeProductSyncService
                     'raw' => $m,
                 ]);
             }
+
+            return $modelPrices === [] ? null : min($modelPrices);
         } catch (\Throwable $e) {
             Log::info('Shopee model sync skipped', [
                 'item_id' => $itemId,
                 'reason' => $e->getMessage(),
             ]);
+
+            return null;
         }
     }
 
