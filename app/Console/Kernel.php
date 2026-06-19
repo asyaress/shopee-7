@@ -25,10 +25,10 @@ class Kernel extends ConsoleKernel
             ->weeklyOn(1, '03:00')
             ->withoutOverlapping(180);
 
-        // Orders incremental tiap 30 menit (toko aktif / env)
+        // Orders incremental tiap 5 menit (toko aktif / env)
         $schedule->command('shopee:sync-orders --days=2')
-            ->everyThirtyMinutes()
-            ->withoutOverlapping(30);
+            ->everyFiveMinutes()
+            ->withoutOverlapping(5);
 
         $schedule->command('shopee:sync-ads --days=1 --pause=1')
             ->everyTenMinutes()
