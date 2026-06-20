@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeAdsSyncService
 {
+    private int $requestPauseSeconds = 0;
+
     public function __construct(
         private readonly ShopeeClient $defaultClient,
         private readonly ?ShopeeClient $adsClient = null,
@@ -43,6 +45,7 @@ class ShopeeAdsSyncService
     {
         $start = $start->copy()->startOfDay();
         $end = $end->copy()->endOfDay();
+        $this->requestPauseSeconds = max(0, min(10, $pauseSeconds));
 
         $saved = 0;
         $skipped = 0;
@@ -351,10 +354,6 @@ class ShopeeAdsSyncService
         try {
             return $fetch();
         } catch (\Throwable $e) {
-            if ($this->isRateLimitError($e->getMessage())) {
-                throw $e;
-            }
-
             Log::warning('Shopee ads product source unavailable, trying next source', [
                 'source' => $source,
                 'start' => $start->toDateString(),
@@ -911,7 +910,12 @@ class ShopeeAdsSyncService
     {
         [$client, $token] = $this->resolveContextForPath($path, $fallbackToken);
 
-        return $client->requestPrivate($method, $path, $params, $token);
+        $response = $client->requestPrivate($method, $path, $params, $token);
+        if ($this->requestPauseSeconds > 0) {
+            sleep($this->requestPauseSeconds);
+        }
+
+        return $response;
     }
 
     /**

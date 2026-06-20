@@ -163,7 +163,9 @@ class ShopeeAdsSyncServiceTest extends TestCase
         $amsClient->shouldReceive('requestPrivate')
             ->once()
             ->with('GET', '/api/v2/ams/get_product_performance', Mockery::type('array'), $amsToken)
-            ->andThrow(new \RuntimeException('AMS product report unavailable'));
+            ->andThrow(new \RuntimeException(
+                'Shopee API error (error_rate_limit): Too many requests.'
+            ));
 
         $adsClient->shouldReceive('requestPrivate')
             ->once()
