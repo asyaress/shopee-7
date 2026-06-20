@@ -204,6 +204,27 @@ class ProductProfitReportService
             ];
         }
 
+        if ($request->attributes->getBoolean('include_all_products')) {
+            $allProducts = Product::query()
+                ->select([
+                    'id',
+                    'name',
+                    'external_item_id',
+                    'external_sku',
+                    'hpp_amount',
+                    'packaging_type',
+                    'packaging_value',
+                ]);
+            ShopeeShopContext::scopeProducts($allProducts);
+
+            foreach ($allProducts->get() as $product) {
+                $pid = (int) $product->id;
+                if (!isset($productAgg[$pid])) {
+                    $productAgg[$pid] = $this->emptyProductRow($product);
+                }
+            }
+        }
+
         $operationalTotal = $this->sumOperationalForRange($shopId, $startDate, $endDate);
         $adsByProduct = $this->loadAdsByProduct($shopId, $startDate, $endDate);
 

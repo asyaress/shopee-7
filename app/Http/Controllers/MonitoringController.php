@@ -83,6 +83,7 @@ class MonitoringController extends Controller
 
     public function ads(Request $request)
     {
+        $request->attributes->set('include_all_products', true);
         $report = $this->reportService->build($request);
         $charts = $this->chartService->chartsForAds($report, $request);
 

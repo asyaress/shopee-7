@@ -4,6 +4,7 @@
 
 @push('styles')
 <link href="{{ asset('css/hub-monitoring.css') }}?v=1" rel="stylesheet">
+@include('hub.partials.datatables-assets')
 @endpush
 
 @section('content')
@@ -67,14 +68,17 @@
     </div>
 
     @php
-        $adsProducts = collect($products ?? [])->sortByDesc('ads_spend')->take(15);
+        $adsProducts = collect($products ?? [])->sortByDesc('ads_spend')->values();
     @endphp
     @if($adsProducts->isNotEmpty())
     <div class="hub-card mt-3">
-        <div class="hub-card-header"><h2 class="report-section-title">Performa iklan per produk</h2></div>
+        <div class="hub-card-header">
+            <h2 class="report-section-title">Performa iklan per produk</h2>
+            <span class="small text-muted">{{ number_format($adsProducts->count(), 0, ',', '.') }} produk</span>
+        </div>
         <div class="hub-card-body p-0">
             <div class="hub-table-wrap">
-                <table class="report-table">
+                <table id="adsProductsTable" class="report-table w-100">
                     <thead>
                         <tr>
                             <th>Produk</th>
@@ -92,18 +96,19 @@
                             $am = $p['ads_metrics'] ?? [];
                             $pr = $p['pricing'] ?? [];
                             $ps = $pr['status'] ?? '';
+                            $recommendedPrice = $pr['prices']['recommended_gross'] ?? $pr['prices']['avg_selling'] ?? 0;
                         @endphp
                         <tr>
                             <td>
                                 <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + request()->query()) }}">{{ $p['name'] ?? '—' }}</a>
                                 @if($ps)<br><span class="price-status-{{ $ps === 'ok' ? 'ok' : ($ps === 'too_low' || $ps === 'not_covering' ? 'low' : 'review') }}">{{ $pr['status_label'] ?? '' }}</span>@endif
                             </td>
-                            <td class="num">{{ hub_rp($p['ads_spend'] ?? 0) }}</td>
-                            <td class="num">{{ isset($am['cpc']) ? hub_rp($am['cpc']) : '—' }}</td>
-                            <td class="num">{{ isset($p['roas']) && $p['roas'] ? number_format($p['roas'], 2).'x' : '—' }}</td>
-                            <td class="num">{{ isset($am['target_roas']) ? ($am['target_roas'].'x') : '—' }}</td>
-                            <td class="num">{{ hub_rp($pr['prices']['recommended_gross'] ?? $pr['prices']['avg_selling'] ?? 0) }}</td>
-                            <td class="num {{ ($p['net_profit'] ?? 0) >= 0 ? 'amt-pos' : 'amt-neg' }}">{{ hub_rp($p['net_profit'] ?? 0, true) }}</td>
+                            <td class="num" data-order="{{ (float) ($p['ads_spend'] ?? 0) }}">{{ hub_rp($p['ads_spend'] ?? 0) }}</td>
+                            <td class="num" data-order="{{ (float) ($am['cpc'] ?? -1) }}">{{ isset($am['cpc']) ? hub_rp($am['cpc']) : '—' }}</td>
+                            <td class="num" data-order="{{ (float) ($p['roas'] ?? -1) }}">{{ isset($p['roas']) && $p['roas'] ? number_format($p['roas'], 2).'x' : '—' }}</td>
+                            <td class="num" data-order="{{ (float) ($am['target_roas'] ?? -1) }}">{{ isset($am['target_roas']) ? ($am['target_roas'].'x') : '—' }}</td>
+                            <td class="num" data-order="{{ (float) $recommendedPrice }}">{{ hub_rp($recommendedPrice) }}</td>
+                            <td class="num {{ ($p['net_profit'] ?? 0) >= 0 ? 'amt-pos' : 'amt-neg' }}" data-order="{{ (float) ($p['net_profit'] ?? 0) }}">{{ hub_rp($p['net_profit'] ?? 0, true) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -116,6 +121,7 @@
 @endsection
 
 @push('scripts')
+@include('hub.partials.datatables-scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const c = @json($charts);
@@ -125,6 +131,11 @@ document.addEventListener('DOMContentLoaded', function () {
     HubCharts.render('chCtr', 'line', {
         labels: (c.ctr_daily || {}).labels,
         datasets: [{ label: 'CTR %', data: (c.ctr_daily || {}).data }]
+    });
+
+    HubDataTable.init('#adsProductsTable', {
+        pageLength: 25,
+        order: [[1, 'desc'], [0, 'asc']],
     });
 });
 </script>
