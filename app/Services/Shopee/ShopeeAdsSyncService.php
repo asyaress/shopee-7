@@ -277,6 +277,13 @@ class ShopeeAdsSyncService
             try {
                 return $this->fetchShopDailyAsProductRows($token, $chunkStart, $chunkEnd);
             } catch (\Throwable $e2) {
+                $message = $e2->getMessage();
+                if (str_contains($message, 'error_date_too_old') || str_contains($message, "can't be earlier than 6 months")) {
+                    throw new \RuntimeException(
+                        'Rentang tanggal Ads terlalu lama. Shopee hanya menyediakan histori maksimal 6 bulan terakhir.'
+                    );
+                }
+
                 throw new \RuntimeException(
                     'Ads API belum dapat diakses: ' . $e2->getMessage()
                     . ' — pastikan permission Marketing/Ads sudah disetujui Shopee.'

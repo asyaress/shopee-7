@@ -72,6 +72,8 @@ class ShopeeSyncAdsCommand extends Command
                 $end = $today;
             }
 
+            $start = $this->clampStartToApiWindow($start);
+
             if ($start->gt($end)) {
                 throw new \RuntimeException("Tahun {$year} belum punya rentang tanggal yang valid untuk disync.");
             }
@@ -87,6 +89,16 @@ class ShopeeSyncAdsCommand extends Command
         if ($from !== '' || $to !== '') {
             $start = $from !== '' ? Carbon::parse($from)->startOfDay() : Carbon::now()->subDays(29)->startOfDay();
             $end = $to !== '' ? Carbon::parse($to)->endOfDay() : Carbon::now()->endOfDay();
+            $today = Carbon::now()->endOfDay();
+            if ($end->gt($today)) {
+                $end = $today;
+            }
+
+            $start = $this->clampStartToApiWindow($start);
+            if ($start->gt($end)) {
+                throw new \RuntimeException('Rentang tanggal tidak tersedia dalam batas histori 6 bulan Shopee Ads.');
+            }
+
             $modeLabel = "Sync ads app={$token->app_type} env={$token->env} shop_id={$token->shop_id} range={$start->toDateString()}..{$end->toDateString()} pause={$pause}s ...";
             $result = $svc->syncBetween($token, $start, $end, $pause);
 
@@ -104,6 +116,22 @@ class ShopeeSyncAdsCommand extends Command
         );
 
         return [$modeLabel, $result];
+    }
+
+    private function clampStartToApiWindow(Carbon $start): Carbon
+    {
+        // Avoid timezone differences at Shopee's exact six-month boundary.
+        $earliest = Carbon::now()->subMonthsNoOverflow(6)->addDay()->startOfDay();
+        if ($start->lt($earliest)) {
+            $this->warn(
+                "Tanggal mulai {$start->toDateString()} melewati batas histori 6 bulan Shopee Ads; "
+                . "sync dimulai dari {$earliest->toDateString()}."
+            );
+
+            return $earliest;
+        }
+
+        return $start;
     }
 
     private function resolveAdsContext(): array
