@@ -209,7 +209,7 @@ class ProductProfitReportService
 
         $netShop = max(0.00001, $totals['net']);
 
-        $totalAds = 0.0;
+        $totalAds = $this->sumAdsForRange($shopId, $startDate, $endDate);
         foreach ($productAgg as $pid => &$row) {
             $extId = $row['external_item_id'] ?? '';
             $adsSpend = (float) ($adsByProduct[$pid] ?? $adsByProduct['ext:' . $extId] ?? 0);
@@ -228,8 +228,6 @@ class ProductProfitReportService
             $row['margin'] = (float) $row['net'] > 0 ? $row['net_profit'] / (float) $row['net'] : 0;
             $row['roas'] = $adsSpend > 0 ? (float) $row['gross'] / $adsSpend : null;
             $row['acos'] = (float) $row['gross'] > 0 ? $adsSpend / (float) $row['gross'] : null;
-
-            $totalAds += $adsSpend;
         }
         unset($row);
 

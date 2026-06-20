@@ -41,22 +41,18 @@ class ShopeeAppContextResolver
 
         if (ShopeeClient::isConfigured(ShopeeToken::APP_ADS)) {
             $adsToken = $this->token(ShopeeToken::APP_ADS, $envOverride, $shopId);
-            if (!$adsToken) {
-                throw new \RuntimeException('Credential Ads App sudah diisi, tapi toko ini belum di-connect ke Ads App.');
+            if ($adsToken) {
+                $adsClient = ShopeeClient::fromConfig(ShopeeToken::APP_ADS);
+                $sources[] = ShopeeToken::APP_ADS;
             }
-
-            $adsClient = ShopeeClient::fromConfig(ShopeeToken::APP_ADS);
-            $sources[] = ShopeeToken::APP_ADS;
         }
 
         if (ShopeeClient::isConfigured(ShopeeToken::APP_AMS)) {
             $amsToken = $this->token(ShopeeToken::APP_AMS, $envOverride, $shopId);
-            if (!$amsToken) {
-                throw new \RuntimeException('Credential AMS App sudah diisi, tapi toko ini belum di-connect ke AMS App.');
+            if ($amsToken) {
+                $amsClient = ShopeeClient::fromConfig(ShopeeToken::APP_AMS);
+                $sources[] = ShopeeToken::APP_AMS;
             }
-
-            $amsClient = ShopeeClient::fromConfig(ShopeeToken::APP_AMS);
-            $sources[] = ShopeeToken::APP_AMS;
         }
 
         return [

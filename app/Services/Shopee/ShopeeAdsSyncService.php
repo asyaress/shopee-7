@@ -164,8 +164,18 @@ class ShopeeAdsSyncService
         $rows = [];
         $cursor = $start->copy()->startOfDay();
         $maxChunkDays = 28;
-        $campaignIds = $this->fetchProductCampaignIds($token);
-        $campaignItemMap = !empty($campaignIds) ? $this->fetchProductCampaignItemMap($token, $campaignIds) : [];
+        $campaignIds = [];
+        $campaignItemMap = [];
+
+        try {
+            $campaignIds = $this->fetchProductCampaignIds($token);
+            $campaignItemMap = !empty($campaignIds) ? $this->fetchProductCampaignItemMap($token, $campaignIds) : [];
+        } catch (\Throwable $e) {
+            Log::warning('Shopee ads campaign metadata unavailable, continuing without campaign map', [
+                'shop_id' => $token->shop_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         while ($cursor->lte($end)) {
             $chunkStart = $cursor->copy()->startOfDay();
