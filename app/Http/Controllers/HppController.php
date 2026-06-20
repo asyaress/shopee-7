@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Support\ShopeeShopContext;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -52,7 +53,7 @@ class HppController extends Controller
         ]);
     }
 
-    public function save(Request $request): RedirectResponse
+    public function save(Request $request): RedirectResponse|JsonResponse
     {
         $productsInput = $request->input('products');
         if ($request->filled('payload')) {
@@ -114,9 +115,19 @@ class HppController extends Controller
             }
         });
 
+        $message = "Biaya tersimpan untuk {$savedProducts} produk dan {$savedVariants} varian.";
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'saved_products' => $savedProducts,
+                'saved_variants' => $savedVariants,
+            ]);
+        }
+
         return redirect()
             ->route('hpp.index', array_filter($request->only(['search', 'category', 'platform', 'fill'])))
-            ->with('success', "Biaya tersimpan untuk {$savedProducts} produk dan {$savedVariants} varian.");
+            ->with('success', $message);
     }
 
     private function applyFilters(Collection $products, Request $request): Collection

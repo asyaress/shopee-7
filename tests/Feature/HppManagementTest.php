@@ -43,7 +43,10 @@ class HppManagementTest extends TestCase
             ->assertSee('value="12.000"', false)
             ->assertSee('value="1.500"', false)
             ->assertSee('value="16.000"', false)
-            ->assertSee('value="2.000"', false);
+            ->assertSee('value="2.000"', false)
+            ->assertSee('Autosave aktif')
+            ->assertSee('data-save-state', false)
+            ->assertDontSee('Simpan Perubahan');
     }
 
     public function test_bulk_json_payload_updates_product_and_variant_costs(): void
@@ -106,5 +109,32 @@ class HppManagementTest extends TestCase
         $this->assertNull($inheritVariant->hpp_amount);
         $this->assertNull($inheritVariant->packaging_type);
         $this->assertNull($inheritVariant->packaging_value);
+    }
+
+    public function test_autosave_json_request_updates_one_product_and_returns_status(): void
+    {
+        $product = Product::query()->create([
+            'name' => 'Spanduk Custom',
+            'base_price' => 50000,
+            'is_active' => true,
+        ]);
+
+        $this->withSession(['simple_auth' => true])
+            ->postJson('/hpp', [
+                'products' => [[
+                    'id' => $product->id,
+                    'hpp_amount' => 27500,
+                    'packaging_type' => 'fixed',
+                    'packaging_value' => 1200,
+                    'variants' => [],
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('saved_products', 1)
+            ->assertJsonPath('saved_variants', 0);
+
+        $product->refresh();
+        $this->assertSame('27500.00', (string) $product->hpp_amount);
+        $this->assertSame('1200.00', (string) $product->packaging_value);
     }
 }

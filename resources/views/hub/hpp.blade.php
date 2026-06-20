@@ -3,7 +3,7 @@
 @section('title', 'Pusat HPP & Varian - Shopee Profit Hub')
 
 @push('styles')
-<link href="{{ asset('css/hub-hpp.css') }}?v=1" rel="stylesheet">
+<link href="{{ asset('css/hub-hpp.css') }}?v=2" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -115,8 +115,9 @@
     </section>
 
     <div class="hpp-list-toolbar">
-        <div><strong>{{ hub_num($products->count()) }} produk ditampilkan</strong><span>Klik produk untuk mengedit biaya.</span></div>
+        <div><strong>{{ hub_num($products->count()) }} produk ditampilkan</strong><span>Klik produk untuk mengedit biaya. Perubahan tersimpan otomatis.</span></div>
         <div class="d-flex gap-2">
+            <span class="hpp-autosave-note"><i class="fas fa-cloud-arrow-up"></i> Autosave aktif</span>
             <button type="button" class="hub-btn hub-btn-sm hub-btn-outline" data-expand-all><i class="fas fa-angles-down"></i> Buka semua</button>
             <button type="button" class="hub-btn hub-btn-sm hub-btn-outline" data-collapse-all><i class="fas fa-angles-up"></i> Tutup semua</button>
         </div>
@@ -124,7 +125,6 @@
 
     <form method="POST" action="{{ route('hpp.save') }}" id="hppForm">
         @csrf
-        <input type="hidden" name="payload" id="hppPayload">
         @foreach(['search', 'category', 'platform', 'fill'] as $filterKey)
             @if(($f[$filterKey] ?? '') !== '' && !($filterKey === 'fill' && $f[$filterKey] === 'all'))
                 <input type="hidden" name="{{ $filterKey }}" value="{{ $f[$filterKey] }}">
@@ -168,6 +168,9 @@
                             <span class="hpp-head-metric"><small>Harga</small><strong>{{ ($product->base_price ?? 0) > 0 ? hub_rp($product->base_price) : 'Custom' }}</strong></span>
                             <span class="hpp-head-metric"><small>HPP default</small><strong data-head-hpp>{{ $product->hpp_amount !== null ? hub_rp($product->hpp_amount) : 'Belum diisi' }}</strong></span>
                             <span class="hpp-variant-count"><i class="fas fa-layer-group"></i> {{ $variants->count() }} varian</span>
+                            <span class="hpp-autosave-state is-saved" data-save-state aria-live="polite">
+                                <i class="fas fa-cloud-check"></i><span>Tersimpan</span>
+                            </span>
                             <span class="hpp-cost-status {{ $isComplete ? 'complete' : 'missing' }}" data-cost-status>
                                 <i class="fas {{ $isComplete ? 'fa-circle-check' : 'fa-triangle-exclamation' }}"></i>
                                 {{ $isComplete ? 'Siap' : 'Lengkapi' }}
@@ -267,19 +270,9 @@
         </div>
     </form>
 
-    <div class="hpp-save-bar" id="hppSaveBar" aria-live="polite">
-        <div class="hpp-save-message">
-            <span class="hpp-save-count" id="hppDirtyCount">0</span>
-            <div><strong>perubahan belum disimpan</strong><small>Semua produk dan varian akan disimpan sekaligus.</small></div>
-        </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="hub-btn hpp-discard-btn" data-discard-changes>Batalkan</button>
-            <button type="submit" form="hppForm" class="hub-btn hpp-save-btn" id="hppSaveButton"><i class="fas fa-floppy-disk"></i> Simpan Perubahan</button>
-        </div>
-    </div>
 </div>
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/hub-hpp.js') }}?v=1"></script>
+<script src="{{ asset('js/hub-hpp.js') }}?v=2"></script>
 @endpush

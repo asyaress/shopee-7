@@ -6,12 +6,11 @@
         if (!form) return;
 
         const cards = Array.from(form.querySelectorAll('[data-product-card]'));
-        const saveBar = document.getElementById('hppSaveBar');
-        const dirtyCount = document.getElementById('hppDirtyCount');
-        const payload = document.getElementById('hppPayload');
-        const saveButton = document.getElementById('hppSaveButton');
-        const dirtyProducts = new Set();
-        let submitting = false;
+        const csrfToken = form.querySelector('[name="_token"]')?.value || '';
+        const saveTimers = new Map();
+        const saveVersions = new Map();
+        const pendingProducts = new Set();
+        const savingProducts = new Set();
 
         const currency = new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -151,12 +150,37 @@
             card.classList.toggle('is-missing', !complete);
         }
 
+        function setSaveState(card, state, message) {
+            const stateEl = card.querySelector('[data-save-state]');
+            if (!stateEl) return;
+
+            const states = {
+                pending: ['fa-clock', 'Menunggu'],
+                saving: ['fa-spinner fa-spin', 'Menyimpan'],
+                saved: ['fa-cloud-check', 'Tersimpan'],
+                error: ['fa-triangle-exclamation', 'Gagal'],
+            };
+            const display = states[state] || states.saved;
+            stateEl.className = `hpp-autosave-state is-${state}`;
+            stateEl.innerHTML = `<i class="fas ${display[0]}"></i><span>${message || display[1]}</span>`;
+            stateEl.title = state === 'error' ? 'Klik untuk mencoba menyimpan lagi' : display[1];
+        }
+
+        function queueSave(card, delay) {
+            const id = String(card.dataset.productId);
+            window.clearTimeout(saveTimers.get(id));
+            saveTimers.set(id, window.setTimeout(function () {
+                saveCard(card);
+            }, delay ?? 850));
+        }
+
         function markDirty(card) {
-            dirtyProducts.add(String(card.dataset.productId));
+            const id = String(card.dataset.productId);
+            saveVersions.set(id, (saveVersions.get(id) || 0) + 1);
+            pendingProducts.add(id);
             card.classList.add('is-dirty');
-            dirtyCount.textContent = String(dirtyProducts.size);
-            saveBar.classList.add('show');
-            document.body.style.paddingBottom = window.innerWidth < 768 ? '150px' : '88px';
+            setSaveState(card, 'pending');
+            queueSave(card);
         }
 
         function productPayload(card) {
@@ -178,7 +202,63 @@
             };
         }
 
+        function responseError(body) {
+            if (body?.errors) {
+                const first = Object.values(body.errors).flat()[0];
+                if (first) return first;
+            }
+            return body?.message || 'Data belum berhasil disimpan.';
+        }
+
+        async function saveCard(card) {
+            const id = String(card.dataset.productId);
+            if (savingProducts.has(id)) return;
+
+            window.clearTimeout(saveTimers.get(id));
+            saveTimers.delete(id);
+            const version = saveVersions.get(id) || 0;
+            savingProducts.add(id);
+            setSaveState(card, 'saving');
+
+            let saved = false;
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ products: [productPayload(card)] }),
+                });
+                const body = await response.json().catch(function () { return {}; });
+                if (!response.ok) throw new Error(responseError(body));
+                saved = true;
+            } catch (error) {
+                setSaveState(card, 'error', 'Gagal');
+                card.querySelector('[data-save-state]')?.setAttribute('title', `${error.message} Klik untuk mencoba lagi.`);
+            } finally {
+                savingProducts.delete(id);
+                const hasNewerChange = (saveVersions.get(id) || 0) !== version;
+                if (saved && !hasNewerChange) {
+                    pendingProducts.delete(id);
+                    card.classList.remove('is-dirty');
+                    setSaveState(card, 'saved');
+                } else if (hasNewerChange) {
+                    setSaveState(card, 'pending');
+                    queueSave(card, 100);
+                }
+            }
+        }
+
         cards.forEach(function (card) {
+            card.querySelector('[data-save-state]')?.addEventListener('click', function (event) {
+                event.stopPropagation();
+                const id = String(card.dataset.productId);
+                if (pendingProducts.has(id) && !savingProducts.has(id)) queueSave(card, 0);
+            });
+
             card.querySelector('[data-product-toggle]')?.addEventListener('click', function () {
                 setOpen(card, !card.classList.contains('is-open'));
             });
@@ -213,15 +293,8 @@
         document.querySelector('[data-collapse-all]')?.addEventListener('click', function () {
             cards.forEach(card => setOpen(card, false));
         });
-        document.querySelector('[data-discard-changes]')?.addEventListener('click', function () {
-            if (!dirtyProducts.size || window.confirm('Batalkan semua perubahan yang belum disimpan?')) {
-                submitting = true;
-                window.location.reload();
-            }
-        });
-
         window.addEventListener('beforeunload', function (event) {
-            if (!submitting && dirtyProducts.size) {
+            if (pendingProducts.size || savingProducts.size) {
                 event.preventDefault();
                 event.returnValue = '';
             }
@@ -229,11 +302,6 @@
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            payload.value = JSON.stringify(cards.map(productPayload));
-            submitting = true;
-            saveButton.disabled = true;
-            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
-            HTMLFormElement.prototype.submit.call(form);
         });
     });
 })();
