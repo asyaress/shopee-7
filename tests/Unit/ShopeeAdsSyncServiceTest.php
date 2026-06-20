@@ -204,4 +204,77 @@ class ShopeeAdsSyncServiceTest extends TestCase
         $this->assertSame('2026-06-20', $row->report_date->toDateString());
         $this->assertSame(1, ShopeeProductAdsDaily::query()->count());
     }
+
+    public function test_sync_keeps_earlier_ams_rows_when_latest_date_is_not_ready(): void
+    {
+        $mainToken = new ShopeeToken([
+            'env' => 'prod',
+            'app_type' => ShopeeToken::APP_MAIN,
+            'shop_id' => 495488171,
+            'access_token' => 'main-token',
+        ]);
+        $amsToken = new ShopeeToken([
+            'env' => 'prod',
+            'app_type' => ShopeeToken::APP_AMS,
+            'shop_id' => 495488171,
+            'access_token' => 'ams-token',
+        ]);
+
+        $product = Product::create([
+            'name' => 'Produk AMS Tertunda',
+            'external_platform' => 'shopee',
+            'external_shop_id' => 495488171,
+            'external_item_id' => 12345,
+            'is_active' => true,
+        ]);
+
+        $mainClient = Mockery::mock(ShopeeClient::class);
+        $mainClient->shouldReceive('requestPrivate')
+            ->once()
+            ->with('GET', '/api/v2/ads/get_product_level_campaign_id_list', Mockery::type('array'), $mainToken)
+            ->andThrow(new \RuntimeException('ads metadata unavailable'));
+
+        $amsClient = Mockery::mock(ShopeeClient::class);
+        $amsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->ordered()
+            ->with('GET', '/api/v2/ams/get_product_performance', Mockery::on(
+                fn (array $params) => ($params['start_date'] ?? null) === '20260619'
+            ), $amsToken)
+            ->andReturn([
+                'response' => [
+                    'list' => [[
+                        'item_id' => 12345,
+                        'expense' => 12500,
+                        'sales' => 50000,
+                        'clicks' => 12,
+                    ]],
+                    'has_more' => false,
+                    'total_count' => 1,
+                ],
+            ]);
+        $amsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->ordered()
+            ->with('GET', '/api/v2/ams/get_product_performance', Mockery::on(
+                fn (array $params) => ($params['start_date'] ?? null) === '20260620'
+            ), $amsToken)
+            ->andThrow(new \RuntimeException(
+                'Shopee API error (error_param): invalid time range, detail:start_date cannot be later than latest data date'
+            ));
+
+        $service = new ShopeeAdsSyncService($mainClient, null, null, $amsClient, $amsToken);
+        $result = $service->syncBetween(
+            $mainToken,
+            Carbon::create(2026, 6, 19)->startOfDay(),
+            Carbon::create(2026, 6, 20)->endOfDay(),
+            0
+        );
+
+        $this->assertSame(1, $result['saved']);
+        $row = ShopeeProductAdsDaily::query()->firstOrFail();
+        $this->assertSame($product->id, (int) $row->product_id);
+        $this->assertSame('12345', (string) $row->external_item_id);
+        $this->assertSame('2026-06-19', $row->report_date->toDateString());
+    }
 }

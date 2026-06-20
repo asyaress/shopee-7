@@ -385,15 +385,28 @@ class ShopeeAdsSyncService
         while ($cursor->lte($chunkEnd)) {
             $pageNo = 1;
             while (true) {
-                $response = $this->requestPrivate('GET', $path, [
-                    'period_type' => 'Day',
-                    'start_date' => $cursor->format('Ymd'),
-                    'end_date' => $cursor->format('Ymd'),
-                    'page_no' => $pageNo,
-                    'page_size' => $pageSize,
-                    'order_type' => 'ConfirmedOrder',
-                    'channel' => 'AllChannel',
-                ], $token);
+                try {
+                    $response = $this->requestPrivate('GET', $path, [
+                        'period_type' => 'Day',
+                        'start_date' => $cursor->format('Ymd'),
+                        'end_date' => $cursor->format('Ymd'),
+                        'page_no' => $pageNo,
+                        'page_size' => $pageSize,
+                        'order_type' => 'ConfirmedOrder',
+                        'channel' => 'AllChannel',
+                    ], $token);
+                } catch (\Throwable $e) {
+                    if ($this->isLatestDataDateError($e->getMessage())) {
+                        Log::info('Shopee AMS latest product date not ready; keeping earlier product rows', [
+                            'requested_date' => $cursor->toDateString(),
+                            'rows_collected' => count($rows),
+                        ]);
+
+                        return $rows;
+                    }
+
+                    throw $e;
+                }
 
                 $payload = $this->responsePayload($response);
                 $items = $this->extractList($payload, ['list', 'item_list', 'products', 'rows']);
@@ -458,6 +471,14 @@ class ShopeeAdsSyncService
         }
 
         return $rows;
+    }
+
+    private function isLatestDataDateError(string $message): bool
+    {
+        return str_contains(
+            strtolower($message),
+            'start_date cannot be later than latest data date'
+        );
     }
 
     /**
