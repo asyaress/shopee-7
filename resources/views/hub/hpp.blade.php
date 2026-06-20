@@ -141,6 +141,10 @@
                         : $product->hpp_amount !== null;
                     $overrideCount = $variants->filter(fn ($variant) => $variant->hpp_amount !== null || $variant->packaging_type !== null)->count();
                     $packType = $product->packaging_type ?: 'fixed';
+                    $hppDisplay = $product->hpp_amount !== null ? number_format((float) $product->hpp_amount, 0, ',', '.') : '';
+                    $packDisplay = $product->packaging_value !== null
+                        ? ($packType === 'fixed' ? number_format((float) $product->packaging_value, 0, ',', '.') : (float) $product->packaging_value)
+                        : '';
                 @endphp
 
                 <article class="hpp-product-card {{ $isComplete ? 'is-complete' : 'is-missing' }}"
@@ -182,7 +186,7 @@
                             <div class="hpp-cost-grid">
                                 <label class="hpp-field">
                                     <span>HPP per unit <b>*</b></span>
-                                    <div class="hpp-input-group"><span>Rp</span><input type="number" min="0" step="100" value="{{ $product->hpp_amount }}" placeholder="Contoh 15000" data-product-field="hpp_amount"></div>
+                                    <div class="hpp-input-group"><span>Rp</span><input type="text" inputmode="numeric" value="{{ $hppDisplay }}" placeholder="Contoh 15.000" data-money="true" data-product-field="hpp_amount"></div>
                                     <small>Harga beli atau biaya produksi satu unit.</small>
                                 </label>
                                 <label class="hpp-field">
@@ -195,7 +199,7 @@
                                 </label>
                                 <label class="hpp-field">
                                     <span>Nilai packaging</span>
-                                    <div class="hpp-input-group"><span data-pack-unit>{{ $packType === 'percent' ? '%' : 'Rp' }}</span><input type="number" min="0" step="0.01" value="{{ $product->packaging_value }}" placeholder="0" data-product-field="packaging_value"></div>
+                                    <div class="hpp-input-group"><span data-pack-unit>{{ $packType === 'percent' ? '%' : 'Rp' }}</span><input type="text" inputmode="{{ $packType === 'percent' ? 'decimal' : 'numeric' }}" value="{{ $packDisplay }}" placeholder="0" data-money="{{ $packType === 'fixed' ? 'true' : 'false' }}" data-product-field="packaging_value"></div>
                                     <small data-pack-help>{{ $packType === 'percent' ? 'Persen dari harga jual.' : 'Biaya kemasan per unit.' }}</small>
                                 </label>
                                 <div class="hpp-live-preview">
@@ -223,10 +227,17 @@
                                         <thead><tr><th>Varian</th><th>Harga</th><th>Override HPP</th><th>Packaging</th><th>Nilai</th><th>Efektif</th></tr></thead>
                                         <tbody>
                                             @foreach($variants as $variant)
+                                                @php
+                                                    $variantPackType = $variant->packaging_type;
+                                                    $variantHppDisplay = $variant->hpp_amount !== null ? number_format((float) $variant->hpp_amount, 0, ',', '.') : '';
+                                                    $variantPackDisplay = $variant->packaging_value !== null
+                                                        ? ($variantPackType === 'fixed' ? number_format((float) $variant->packaging_value, 0, ',', '.') : (float) $variant->packaging_value)
+                                                        : '';
+                                                @endphp
                                                 <tr data-variant-row data-variant-id="{{ $variant->id }}" data-price="{{ (float) ($variant->price ?? $product->base_price ?? 0) }}">
                                                     <td data-label="Varian"><strong>{{ $variant->name ?: 'Varian ' . $variant->id }}</strong><small>{{ $variant->sku ?: 'Tanpa SKU' }}</small></td>
                                                     <td data-label="Harga">{{ ($variant->price ?? 0) > 0 ? hub_rp($variant->price) : 'Custom' }}</td>
-                                                    <td data-label="Override HPP"><div class="hpp-input-group compact"><span>Rp</span><input type="number" min="0" step="100" value="{{ $variant->hpp_amount }}" placeholder="Ikut default" data-variant-field="hpp_amount"></div></td>
+                                                    <td data-label="Override HPP"><div class="hpp-input-group compact"><span>Rp</span><input type="text" inputmode="numeric" value="{{ $variantHppDisplay }}" placeholder="Ikut default" data-money="true" data-variant-field="hpp_amount"></div></td>
                                                     <td data-label="Packaging">
                                                         <select data-variant-field="packaging_type">
                                                             <option value="" @selected(!$variant->packaging_type)>Ikut default</option>
@@ -234,7 +245,7 @@
                                                             <option value="percent" @selected($variant->packaging_type === 'percent')>Persentase</option>
                                                         </select>
                                                     </td>
-                                                    <td data-label="Nilai"><div class="hpp-input-group compact"><span data-variant-pack-unit>{{ $variant->packaging_type === 'percent' ? '%' : 'Rp' }}</span><input type="number" min="0" step="0.01" value="{{ $variant->packaging_value }}" placeholder="Ikut default" data-variant-field="packaging_value"></div></td>
+                                                    <td data-label="Nilai"><div class="hpp-input-group compact"><span data-variant-pack-unit>{{ $variantPackType === 'percent' ? '%' : 'Rp' }}</span><input type="text" inputmode="{{ $variantPackType === 'percent' ? 'decimal' : 'numeric' }}" value="{{ $variantPackDisplay }}" placeholder="Ikut default" data-money="{{ $variantPackType === 'fixed' ? 'true' : 'false' }}" data-variant-field="packaging_value"></div></td>
                                                     <td data-label="Efektif"><strong data-variant-effective-cost>-</strong><small data-variant-margin>-</small></td>
                                                 </tr>
                                             @endforeach

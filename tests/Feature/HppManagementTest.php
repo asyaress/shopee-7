@@ -18,6 +18,9 @@ class HppManagementTest extends TestCase
             'external_platform' => 'shopee',
             'external_item_id' => 12345,
             'base_price' => 25000,
+            'hpp_amount' => 12000,
+            'packaging_type' => 'fixed',
+            'packaging_value' => 1500,
             'is_active' => true,
         ]);
         ProductVariant::query()->create([
@@ -25,6 +28,9 @@ class HppManagementTest extends TestCase
             'name' => 'Merah Besar',
             'sku' => 'MUG-RED-L',
             'price' => 28000,
+            'hpp_amount' => 16000,
+            'packaging_type' => 'fixed',
+            'packaging_value' => 2000,
         ]);
 
         $this->withSession(['simple_auth' => true])
@@ -33,7 +39,11 @@ class HppManagementTest extends TestCase
             ->assertSee('Pusat HPP &amp; Varian', false)
             ->assertSee('Mug Custom')
             ->assertSee('Merah Besar')
-            ->assertSee('Override hanya jika biaya berbeda');
+            ->assertSee('Override hanya jika biaya berbeda')
+            ->assertSee('value="12.000"', false)
+            ->assertSee('value="1.500"', false)
+            ->assertSee('value="16.000"', false)
+            ->assertSee('value="2.000"', false);
     }
 
     public function test_bulk_json_payload_updates_product_and_variant_costs(): void

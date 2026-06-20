@@ -19,9 +19,30 @@
             maximumFractionDigits: 0,
         });
 
+        function moneyDigits(value) {
+            return String(value || '').replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+        }
+
+        function formatMoneyInput(input) {
+            const digits = moneyDigits(input.value);
+            input.value = digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+        }
+
+        function setPackagingInputMode(input, type, clearValue) {
+            if (!input) return;
+            if (clearValue) input.value = '';
+            const isMoney = type === 'fixed';
+            input.dataset.money = isMoney ? 'true' : 'false';
+            input.inputMode = isMoney ? 'numeric' : 'decimal';
+            if (isMoney) formatMoneyInput(input);
+        }
+
         function numberValue(input) {
             if (!input || input.value === '') return null;
-            const value = Number(input.value);
+            const raw = input.dataset.money === 'true'
+                ? moneyDigits(input.value)
+                : input.value.replace(',', '.');
+            const value = Number(raw);
             return Number.isFinite(value) ? Math.max(0, value) : null;
         }
 
@@ -53,6 +74,7 @@
             const hpp = numberValue(hppInput);
             const packType = packTypeInput?.value || 'fixed';
             const packValue = numberValue(packValueInput) || 0;
+            setPackagingInputMode(packValueInput, packType, false);
             const pack = packagingCost(price, packType, packValue);
             const total = (hpp || 0) + pack;
             const profit = price - total;
@@ -97,6 +119,7 @@
                 const variantMargin = variantPrice > 0 ? (variantProfit / variantPrice) * 100 : null;
 
                 if (variantValueInput) {
+                    setPackagingInputMode(variantValueInput, ownPackaging ? variantTypeInput.value : effectiveType, false);
                     variantValueInput.disabled = !ownPackaging;
                     variantValueInput.placeholder = ownPackaging ? '0' : 'Ikut default';
                 }
@@ -163,9 +186,15 @@
             card.querySelectorAll('[data-product-field], [data-variant-field]').forEach(function (input) {
                 const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
                 input.addEventListener(eventName, function () {
-                    if (input.matches('[data-variant-field="packaging_type"]') && input.value === '') {
+                    if (input.dataset.money === 'true') {
+                        formatMoneyInput(input);
+                    }
+                    if (input.matches('[data-product-field="packaging_type"]')) {
+                        setPackagingInputMode(field(card, 'packaging_value', false), input.value, true);
+                    }
+                    if (input.matches('[data-variant-field="packaging_type"]')) {
                         const valueInput = field(input.closest('[data-variant-row]'), 'packaging_value', true);
-                        if (valueInput) valueInput.value = '';
+                        setPackagingInputMode(valueInput, input.value || 'fixed', true);
                     }
                     refreshCard(card);
                     markDirty(card);
