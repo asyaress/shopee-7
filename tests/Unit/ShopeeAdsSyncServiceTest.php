@@ -97,4 +97,109 @@ class ShopeeAdsSyncServiceTest extends TestCase
         $this->assertSame(3, (int) $row->orders);
         $this->assertSame('2026-06-20', $row->report_date->toDateString());
     }
+
+    public function test_sync_tries_ads_product_data_after_ams_failure_and_replaces_shop_aggregate(): void
+    {
+        $mainToken = new ShopeeToken([
+            'env' => 'prod',
+            'app_type' => ShopeeToken::APP_MAIN,
+            'shop_id' => 495488171,
+            'access_token' => 'main-token',
+        ]);
+        $adsToken = new ShopeeToken([
+            'env' => 'prod',
+            'app_type' => ShopeeToken::APP_ADS,
+            'shop_id' => 495488171,
+            'access_token' => 'ads-token',
+        ]);
+        $amsToken = new ShopeeToken([
+            'env' => 'prod',
+            'app_type' => ShopeeToken::APP_AMS,
+            'shop_id' => 495488171,
+            'access_token' => 'ams-token',
+        ]);
+
+        $product = Product::create([
+            'name' => 'Produk Ads Campaign',
+            'external_platform' => 'shopee',
+            'external_shop_id' => 495488171,
+            'external_item_id' => 12345,
+            'is_active' => true,
+        ]);
+
+        ShopeeProductAdsDaily::query()->create([
+            'shop_id' => 495488171,
+            'product_id' => null,
+            'external_item_id' => 'shop_aggregate',
+            'report_date' => '2026-06-20',
+            'spend' => 12500,
+        ]);
+
+        $mainClient = Mockery::mock(ShopeeClient::class);
+        $adsClient = Mockery::mock(ShopeeClient::class);
+        $amsClient = Mockery::mock(ShopeeClient::class);
+
+        $adsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->with('GET', '/api/v2/ads/get_product_level_campaign_id_list', Mockery::type('array'), $adsToken)
+            ->andReturn([
+                'response' => [
+                    'campaign_id_list' => [['campaign_id' => 777]],
+                    'total_count' => 1,
+                ],
+            ]);
+        $adsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->with('GET', '/api/v2/ads/get_product_level_campaign_setting_info', Mockery::type('array'), $adsToken)
+            ->andReturn([
+                'response' => [
+                    'campaign_list' => [[
+                        'campaign_id' => 777,
+                        'common_info' => ['item_id' => 12345],
+                    ]],
+                ],
+            ]);
+
+        $amsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->with('GET', '/api/v2/ams/get_product_performance', Mockery::type('array'), $amsToken)
+            ->andThrow(new \RuntimeException('AMS product report unavailable'));
+
+        $adsClient->shouldReceive('requestPrivate')
+            ->once()
+            ->with('GET', '/api/v2/ads/get_product_campaign_daily_performance', Mockery::type('array'), $adsToken)
+            ->andReturn([
+                'response' => [
+                    'daily_performance_list' => [[
+                        'campaign_id' => 777,
+                        'date' => '2026-06-20',
+                        'expense' => 12500,
+                        'broad_gmv' => 50000,
+                        'impression' => 321,
+                        'click' => 12,
+                        'order' => 3,
+                    ]],
+                ],
+            ]);
+
+        $service = new ShopeeAdsSyncService($mainClient, $adsClient, $adsToken, $amsClient, $amsToken);
+        $result = $service->syncBetween(
+            $mainToken,
+            Carbon::create(2026, 6, 20)->startOfDay(),
+            Carbon::create(2026, 6, 20)->endOfDay(),
+            0
+        );
+
+        $this->assertSame(1, $result['saved']);
+        $this->assertFalse(ShopeeProductAdsDaily::query()
+            ->where('shop_id', 495488171)
+            ->where('external_item_id', 'shop_aggregate')
+            ->exists());
+
+        $row = ShopeeProductAdsDaily::query()->where('external_item_id', '12345')->firstOrFail();
+        $this->assertSame($product->id, (int) $row->product_id);
+        $this->assertSame('12500.00', (string) $row->spend);
+        $this->assertSame('2026-06-20', $row->report_date->toDateString());
+        $this->assertSame(1, ShopeeProductAdsDaily::query()->count());
+    }
 }

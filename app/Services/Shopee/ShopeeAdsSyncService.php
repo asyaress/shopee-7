@@ -54,6 +54,27 @@ class ShopeeAdsSyncService
             return ['saved' => 0, 'skipped' => 0, 'errors' => ['Tidak ada data ads pada rentang tanggal ini.']];
         }
 
+        $productLevelDates = [];
+        foreach ($rows as $row) {
+            $itemId = (string) ($row['item_id'] ?? '');
+            $date = (string) ($row['date'] ?? '');
+            if ($date !== '' && ctype_digit($itemId)) {
+                $productLevelDates[$date] = $date;
+            }
+        }
+
+        if (!empty($productLevelDates)) {
+            ShopeeProductAdsDaily::query()
+                ->where('shop_id', (int) $token->shop_id)
+                ->where('external_item_id', 'shop_aggregate')
+                ->where(function ($query) use ($productLevelDates) {
+                    foreach ($productLevelDates as $date) {
+                        $query->orWhereDate('report_date', $date);
+                    }
+                })
+                ->delete();
+        }
+
         $productMap = Product::query()
             ->whereNotNull('external_item_id')
             ->where('external_item_id', '!=', '')
@@ -251,23 +272,48 @@ class ShopeeAdsSyncService
     ): array
     {
         try {
-            $rows = $this->fetchProductPerformanceDailyRows($token, $chunkStart, $chunkEnd);
+            $rows = $this->tryProductSource(
+                'ams_product_performance',
+                $chunkStart,
+                $chunkEnd,
+                fn () => $this->fetchProductPerformanceDailyRows($token, $chunkStart, $chunkEnd)
+            );
             if (!empty($rows)) {
                 return $rows;
             }
 
-            $rows = $this->fetchProductCampaignDailyRows($token, $chunkStart, $chunkEnd, $campaignIds, $campaignItemMap);
+            $rows = $this->tryProductSource(
+                'ads_product_campaign',
+                $chunkStart,
+                $chunkEnd,
+                fn () => $this->fetchProductCampaignDailyRows(
+                    $token,
+                    $chunkStart,
+                    $chunkEnd,
+                    $campaignIds,
+                    $campaignItemMap
+                )
+            );
             if (!empty($rows)) {
                 return $rows;
             }
 
-            $gmsRows = $this->fetchGmsItemDailyRows($token, $chunkStart, $chunkEnd);
+            $gmsRows = $this->tryProductSource(
+                'ads_gms_item',
+                $chunkStart,
+                $chunkEnd,
+                fn () => $this->fetchGmsItemDailyRows($token, $chunkStart, $chunkEnd)
+            );
             if (!empty($gmsRows)) {
                 return $gmsRows;
             }
 
             throw new \RuntimeException('No product-level rows returned from campaign or GMS performance API.');
         } catch (\Throwable $e) {
+            if ($this->isRateLimitError($e->getMessage())) {
+                throw $e;
+            }
+
             Log::warning('Shopee ads product API failed, trying shop-level fallback', [
                 'start' => $chunkStart->toDateString(),
                 'end' => $chunkEnd->toDateString(),
@@ -290,6 +336,41 @@ class ShopeeAdsSyncService
                 );
             }
         }
+    }
+
+    /**
+     * @param callable():array<int, array<string, mixed>> $fetch
+     * @return array<int, array<string, mixed>>
+     */
+    private function tryProductSource(
+        string $source,
+        Carbon $start,
+        Carbon $end,
+        callable $fetch
+    ): array {
+        try {
+            return $fetch();
+        } catch (\Throwable $e) {
+            if ($this->isRateLimitError($e->getMessage())) {
+                throw $e;
+            }
+
+            Log::warning('Shopee ads product source unavailable, trying next source', [
+                'source' => $source,
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    private function isRateLimitError(string $message): bool
+    {
+        $message = strtolower($message);
+
+        return str_contains($message, 'rate_limit') || str_contains($message, 'too many requests');
     }
 
     /**
@@ -899,6 +980,11 @@ class ShopeeAdsSyncService
 
         $ids = [];
         foreach ($values as $value) {
+            if (!is_array($value) && $value !== null && $value !== '') {
+                $ids[] = (string) $value;
+                continue;
+            }
+
             if (!is_array($value)) {
                 continue;
             }
