@@ -37,7 +37,7 @@ class ProductPerformanceImportService
         }
 
         $periodEnd = $periodEnd ?? now()->endOfDay();
-        $periodStart = $periodStart ?? now()->subDays(30)->startOfDay();
+        $periodStart = $periodStart ?? now()->startOfMonth()->startOfDay();
 
         $path = $file->getRealPath();
         $reader = IOFactory::createReaderForFile($path);

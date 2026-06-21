@@ -95,11 +95,11 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Tanggal Mulai</label>
-                                <input type="date" class="form-control" id="startDateFilter">
+                                <input type="date" class="form-control" id="startDateFilter" value="{{ now()->startOfMonth()->toDateString() }}">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Tanggal Akhir</label>
-                                <input type="date" class="form-control" id="endDateFilter">
+                                <input type="date" class="form-control" id="endDateFilter" value="{{ now()->toDateString() }}">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Jenis Transaksi</label>
@@ -882,8 +882,8 @@
             // Reset semua filter ke nilai default
             document.getElementById('yearFilter').value = new Date().getFullYear();
             document.getElementById('monthFilter').value = '';
-            document.getElementById('startDateFilter').value = '';
-            document.getElementById('endDateFilter').value = '';
+            document.getElementById('startDateFilter').value = '{{ now()->startOfMonth()->toDateString() }}';
+            document.getElementById('endDateFilter').value = '{{ now()->toDateString() }}';
             document.getElementById('transactionTypeFilter').value = 'All';
 
             // Terapkan filter default
@@ -895,8 +895,8 @@
             const initialMeta = {
                 year: new Date().getFullYear(),
                 month: null,
-                startDate: null,
-                endDate: null
+                startDate: '{{ now()->startOfMonth()->toDateString() }}',
+                endDate: '{{ now()->toDateString() }}'
             };
 
             // Render grafik utama dengan data initial (monthly)
@@ -905,6 +905,7 @@
             renderWeeklyChart(@json($weeklyData));
             renderWeeklyInMonthChart(@json($weeklyInMonthData));
             renderMonthlyChart(@json($monthlyData));
+            applyFilters();
 
             // Add event listeners for automatic filtering
             document.getElementById('startDateFilter').addEventListener('change', function () {

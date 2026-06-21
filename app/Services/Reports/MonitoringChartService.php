@@ -98,7 +98,7 @@ class MonitoringChartService
         $s = $report['summary'] ?? [];
         $filters = $report['filters'] ?? [];
 
-        $start = Carbon::parse($filters['start'] ?? now()->subDays(30));
+        $start = Carbon::parse($filters['start'] ?? now()->startOfMonth());
         $end = Carbon::parse($filters['end'] ?? now());
         $shopId = ShopeeShopContext::shopId();
 

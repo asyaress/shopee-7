@@ -19,6 +19,12 @@ class OrderController extends Controller
         Log::info('[ORDER][INDEX] Masuk ke index', $request->all());
 
         $query = Order::with('orderItems.product');
+        $dateFrom = $request->has('date_from')
+            ? (string) $request->input('date_from')
+            : now()->startOfMonth()->toDateString();
+        $dateTo = $request->has('date_to')
+            ? (string) $request->input('date_to')
+            : now()->toDateString();
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -30,13 +36,13 @@ class OrderController extends Controller
             Log::info("[ORDER][INDEX] Filter customer_name: {$request->customer_name}");
         }
 
-        if ($request->filled('date_from')) {
-            $query->whereDate('order_date', '>=', $request->date_from);
-            Log::info("[ORDER][INDEX] Filter date_from: {$request->date_from}");
+        if ($dateFrom !== '') {
+            $query->whereDate('order_date', '>=', $dateFrom);
+            Log::info("[ORDER][INDEX] Filter date_from: {$dateFrom}");
         }
-        if ($request->filled('date_to')) {
-            $query->whereDate('order_date', '<=', $request->date_to);
-            Log::info("[ORDER][INDEX] Filter date_to: {$request->date_to}");
+        if ($dateTo !== '') {
+            $query->whereDate('order_date', '<=', $dateTo);
+            Log::info("[ORDER][INDEX] Filter date_to: {$dateTo}");
         }
 
         if ($request->filled('search')) {
@@ -61,7 +67,7 @@ $orders = $query
         $customers = Customer::active()->get();
 
         Log::info('[ORDER][INDEX] Data berhasil di-load');
-        return view('orders.index', compact('orders', 'customers'));
+        return view('orders.index', compact('orders', 'customers', 'dateFrom', 'dateTo'));
     }
 
     public function create()
@@ -292,6 +298,12 @@ $orders = $query
 
     public function export(Request $request)
     {
+        if (!$request->has('date_from')) {
+            $request->merge(['date_from' => now()->startOfMonth()->toDateString()]);
+        }
+        if (!$request->has('date_to')) {
+            $request->merge(['date_to' => now()->toDateString()]);
+        }
         Log::info("[ORDER][EXPORT] Export data", $request->all());
         $filename = 'orders-' . date('Y-m-d-H-i-s') . '.xlsx';
         return Excel::download(new OrdersExport($request), $filename);

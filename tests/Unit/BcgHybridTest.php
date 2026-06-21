@@ -16,6 +16,20 @@ class BcgHybridTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_bcg_default_period_uses_current_month_to_date(): void
+    {
+        Carbon::setTestNow('2026-06-21 12:00:00');
+
+        try {
+            $bcg = (new BcgFunnelService())->build(9999);
+
+            $this->assertSame('2026-06-01', $bcg['period']['start']);
+            $this->assertSame('2026-06-21', $bcg['period']['end']);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_auto_sync_saves_rows_and_skips_import_source(): void
     {
         $shopId = 9001;

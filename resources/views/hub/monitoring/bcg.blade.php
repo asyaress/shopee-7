@@ -72,7 +72,7 @@
                 </div>
                 <div class="hub-card-body">
                     <p class="small text-muted">
-                        Mengambil <strong>views</strong> (30 hari) dari Shopee API + <strong>qty terjual</strong> dari order lokal.
+                        Mengambil <strong>views</strong> bulan berjalan dari Shopee API + <strong>qty terjual</strong> dari order lokal.
                         Angka bisa berbeda dari Seller Center — gunakan import untuk data resmi.
                     </p>
                     <form method="POST" action="{{ route('monitoring.bcg.sync') }}">

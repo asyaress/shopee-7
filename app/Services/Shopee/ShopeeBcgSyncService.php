@@ -27,8 +27,7 @@ class ShopeeBcgSyncService
     {
         $shopId = (int) $token->shop_id;
         $periodEnd = ($periodEnd ?? now())->copy()->endOfDay();
-        $days = (int) config('monitoring.bcg_funnel.sync_days', 30);
-        $periodStart = ($periodStart ?? now()->subDays($days))->copy()->startOfDay();
+        $periodStart = ($periodStart ?? now()->startOfMonth())->copy()->startOfDay();
 
         $itemIds = $this->collectItemIds($token);
         if (empty($itemIds)) {

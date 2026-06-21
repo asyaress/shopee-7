@@ -22,7 +22,7 @@ class BcgFunnelService
     public function build(int $shopId, ?Carbon $periodStart = null, ?Carbon $periodEnd = null): array
     {
         $periodEnd = $periodEnd ?? now()->endOfDay();
-        $periodStart = $periodStart ?? now()->subDays(30)->startOfDay();
+        $periodStart = $periodStart ?? now()->startOfMonth()->startOfDay();
 
         $rows = ShopeeProductPerformance::query()
             ->where('shop_id', $shopId)

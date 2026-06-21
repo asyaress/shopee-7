@@ -29,7 +29,7 @@ class RoasAdvisorService
         $safety = (float) config('monitoring.roas_advisor.safety_multiplier', 1.25);
         $targetRoasGross = $breakevenRoasGross ? $breakevenRoasGross * $safety : null;
 
-        $start = Carbon::parse($filters['start'] ?? now()->subDays(30));
+        $start = Carbon::parse($filters['start'] ?? now()->startOfMonth());
         $end = Carbon::parse($filters['end'] ?? now());
 
         $adsGmv = (float) ShopeeProductAdsDaily::query()

@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ShopeeProductAdsDaily;
 use App\Models\ShopeeToken;
 use App\Services\Reports\ProductProfitReportService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -13,6 +14,22 @@ use Tests\TestCase;
 class ProductProfitReportServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_default_period_uses_current_month_to_date(): void
+    {
+        Carbon::setTestNow('2026-06-21 12:00:00');
+
+        try {
+            $report = app(ProductProfitReportService::class)->build(
+                Request::create('/monitoring', 'GET')
+            );
+
+            $this->assertSame('2026-06-01', $report['filters']['start']);
+            $this->assertSame('2026-06-21', $report['filters']['end']);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
 
     public function test_summary_includes_shop_ads_without_matching_order_product(): void
     {

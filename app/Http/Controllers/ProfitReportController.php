@@ -138,7 +138,7 @@ class ProfitReportController extends Controller
 
         $startDate = $startRaw !== ''
             ? Carbon::parse($startRaw)->startOfDay()
-            : $today->copy()->subDays(30)->startOfDay();
+            : $today->copy()->startOfMonth()->startOfDay();
 
         $endDate = $endRaw !== ''
             ? Carbon::parse($endRaw)->endOfDay()

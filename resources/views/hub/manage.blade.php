@@ -41,7 +41,7 @@
         <div class="report-kpi-card {{ ($st['unmapped_items'] ?? 0) > 0 ? 'negative' : 'positive' }}">
             <div class="label">Item Unmapped</div>
             <div class="value">{{ $st['unmapped_items'] ?? 0 }}</div>
-            <div class="sub">30 hari terakhir</div>
+            <div class="sub">Bulan berjalan</div>
         </div>
         <div class="report-kpi-card">
             <div class="label">Pesanan Shopee</div>

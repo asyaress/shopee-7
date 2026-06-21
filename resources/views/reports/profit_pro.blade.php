@@ -12,7 +12,7 @@
   ];
 
   $filters = $filters ?? [
-      'start' => now()->subDays(30)->format('Y-m-d'),
+      'start' => now()->startOfMonth()->format('Y-m-d'),
       'end' => now()->format('Y-m-d'),
       'status' => 'completed',
       'jenis' => 'all',

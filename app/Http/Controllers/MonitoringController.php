@@ -196,7 +196,11 @@ class MonitoringController extends Controller
     {
         $report = $this->reportService->build($request);
         $shopId = \App\Support\ShopeeShopContext::shopId();
-        $bcg = $this->bcgFunnel->build($shopId);
+        $bcg = $this->bcgFunnel->build(
+            $shopId,
+            \Carbon\Carbon::parse($report['filters']['start'])->startOfDay(),
+            \Carbon\Carbon::parse($report['filters']['end'])->endOfDay(),
+        );
 
         return view('hub.monitoring.bcg', array_merge($report, [
             'bcg' => $bcg,

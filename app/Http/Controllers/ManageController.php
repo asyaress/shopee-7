@@ -53,7 +53,7 @@ class ManageController extends Controller
 
         $unmappedItems = OrderItem::query()
             ->whereNull('product_id')
-            ->where('created_at', '>=', now()->subDays(30))
+            ->where('created_at', '>=', now()->startOfMonth())
             ->count();
 
         $withHpp = $products->count() - $missingHpp;

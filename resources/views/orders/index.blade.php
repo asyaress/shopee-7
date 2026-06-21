@@ -30,7 +30,7 @@
     </div>
 
     <div class="report-filter-card">
-        <form method="GET" action="{{ route('orders.index') }}" class="row g-3">
+        <form method="GET" action="{{ route('orders.index') }}" class="row g-3" id="orderFilterForm">
             <div class="col-12 col-sm-6 col-lg-3">
                 <label class="hub-form-label">Cari Pesanan</label>
                 <input type="text" name="search" class="hub-form-control" placeholder="No. pesanan, produk, customer..." value="{{ request('search') }}">
@@ -56,11 +56,11 @@
             </div>
             <div class="col-6 col-lg-2">
                 <label class="hub-form-label">Dari Tanggal</label>
-                <input type="date" name="date_from" class="hub-form-control" value="{{ request('date_from') }}">
+                <input type="date" name="date_from" class="hub-form-control" value="{{ $dateFrom }}">
             </div>
             <div class="col-6 col-lg-2">
                 <label class="hub-form-label">Sampai Tanggal</label>
-                <input type="date" name="date_to" class="hub-form-control" value="{{ request('date_to') }}">
+                <input type="date" name="date_to" class="hub-form-control" value="{{ $dateTo }}">
             </div>
             <div class="col-12 col-lg-1 d-flex align-items-end">
                 <button type="submit" class="hub-btn hub-btn-primary w-100"><i class="fas fa-search"></i></button>
@@ -306,12 +306,10 @@
 
     // Export data function
     function exportData() {
-        const currentUrl = new URL(window.location.href);
         const exportUrl = new URL('{{ route('orders.export') }}', window.location.origin);
-        currentUrl.searchParams.forEach((value, key) => {
-            if (key !== 'page') {
-                exportUrl.searchParams.append(key, value);
-            }
+        const filters = new FormData(document.getElementById('orderFilterForm'));
+        filters.forEach((value, key) => {
+            exportUrl.searchParams.set(key, value);
         });
         Swal.fire({
             title: 'Export Data Pesanan',
