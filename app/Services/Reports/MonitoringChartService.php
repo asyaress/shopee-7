@@ -250,28 +250,38 @@ class MonitoringChartService
     private function feeHeatmap(array $monthly, array $periodFb): array
     {
         $map = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels();
+        if ($monthly === []) {
+            return ['series' => [], 'max' => 0];
+        }
+
+        $resolvedMonths = array_map(
+            fn (array $m) => $this->resolveMonthlyFeeComponents($m, $periodFb),
+            $monthly
+        );
+
         $activeKeys = [];
         foreach (array_keys($map) as $key) {
             $periodVal = (int) ($periodFb[$key] ?? 0);
             $monthSum = 0;
-            foreach ($monthly as $m) {
-                $monthSum += (int) (($m['fee'] ?? [])[$key] ?? 0);
+            foreach ($resolvedMonths as $fees) {
+                $monthSum += (int) ($fees[$key] ?? 0);
             }
             if ($periodVal > 0 || $monthSum > 0) {
                 $activeKeys[] = $key;
             }
         }
 
-        if ($activeKeys === [] || $monthly === []) {
+        if ($activeKeys === []) {
             return ['series' => [], 'max' => 0];
         }
 
         $max = 0;
         $series = [];
-        foreach ($monthly as $m) {
+        foreach ($monthly as $idx => $m) {
+            $fees = $resolvedMonths[$idx] ?? [];
             $points = [];
             foreach ($activeKeys as $key) {
-                $val = (int) (($m['fee'] ?? [])[$key] ?? 0);
+                $val = (int) ($fees[$key] ?? 0);
                 $max = max($max, $val);
                 $points[] = ['x' => $map[$key], 'y' => $val];
             }
@@ -290,9 +300,24 @@ class MonitoringChartService
     {
         $map = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels();
         $labels = array_column($monthly, 'label');
+
+        $resolvedMonths = array_map(
+            fn (array $m) => $this->resolveMonthlyFeeComponents($m, $periodFb),
+            $monthly
+        );
+
         $activeKeys = [];
         foreach (array_keys($map) as $key) {
-            if ((int) ($periodFb[$key] ?? 0) > 0) {
+            $hasValue = (int) ($periodFb[$key] ?? 0) > 0;
+            if (!$hasValue) {
+                foreach ($resolvedMonths as $fees) {
+                    if ((int) ($fees[$key] ?? 0) > 0) {
+                        $hasValue = true;
+                        break;
+                    }
+                }
+            }
+            if ($hasValue) {
                 $activeKeys[] = $key;
             }
         }
@@ -301,7 +326,7 @@ class MonitoringChartService
         foreach ($activeKeys as $key) {
             $datasets[] = [
                 'label' => $map[$key],
-                'data' => array_map(fn ($m) => (int) (($m['fee'] ?? [])[$key] ?? 0), $monthly),
+                'data' => array_map(fn (array $fees) => (int) ($fees[$key] ?? 0), $resolvedMonths),
             ];
         }
 
@@ -310,5 +335,65 @@ class MonitoringChartService
             'datasets' => $datasets,
             'stacked' => true,
         ];
+    }
+
+    /**
+     * Komponen fee per bulan — pakai escrow jika ada, else alokasi proporsional dari total fee bulan.
+     *
+     * @param array<string, mixed> $month
+     * @param array<string, int> $periodFb
+     * @return array<string, int>
+     */
+    private function resolveMonthlyFeeComponents(array $month, array $periodFb): array
+    {
+        $keys = array_keys(\App\Services\Finance\ShopeeFinancialExtractor::feeLabels());
+        $actual = [];
+        $actualSum = 0;
+        foreach ($keys as $key) {
+            $val = (int) round(($month['fee'] ?? [])[$key] ?? 0);
+            $actual[$key] = $val;
+            $actualSum += $val;
+        }
+
+        if ($actualSum > 0) {
+            return $actual;
+        }
+
+        $monthTotal = (int) round($month['fee_total'] ?? 0);
+        if ($monthTotal <= 0) {
+            $monthTotal = max(0, (int) round(((float) ($month['gross'] ?? 0)) - ((float) ($month['net'] ?? 0))));
+        }
+
+        if ($monthTotal <= 0) {
+            return $actual;
+        }
+
+        $periodSum = max(0, array_sum($periodFb));
+        if ($periodSum <= 0) {
+            $actual['admin'] = $monthTotal;
+
+            return $actual;
+        }
+
+        $allocated = 0;
+        $lastKey = $keys[0];
+        foreach ($keys as $key) {
+            $share = (int) ($periodFb[$key] ?? 0);
+            if ($share <= 0) {
+                $actual[$key] = 0;
+                continue;
+            }
+            $lastKey = $key;
+            $part = (int) round($monthTotal * ($share / $periodSum));
+            $actual[$key] = $part;
+            $allocated += $part;
+        }
+
+        $diff = $monthTotal - $allocated;
+        if ($diff !== 0) {
+            $actual[$lastKey] = ($actual[$lastKey] ?? 0) + $diff;
+        }
+
+        return $actual;
     }
 }

@@ -580,8 +580,14 @@
         destroy(id);
 
         const series = payload.series || [];
-        if (!series.length || !series.some((s) => (s.data || []).some((d) => (d.y || 0) > 0))) {
-            showEmpty(el, 'Belum ada komponen fee per bulan.');
+        if (!series.length) {
+            showEmpty(el, 'Belum ada data fee untuk periode ini. Perluas rentang tanggal atau sync order Shopee.');
+            return null;
+        }
+
+        const hasValue = series.some((s) => (s.data || []).some((d) => Number(d.y ?? 0) > 0));
+        if (!hasValue) {
+            showEmpty(el, 'Fee platform nol di periode ini — pastikan order Shopee sudah tersinkron dengan data escrow.');
             return null;
         }
 

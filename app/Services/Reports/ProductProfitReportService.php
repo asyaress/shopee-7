@@ -243,8 +243,15 @@ class ProductProfitReportService
         ksort($monthly);
 
         foreach ($monthly as $mk => &$m) {
-            $mStart = Carbon::createFromFormat('Y-m', $mk)->startOfMonth();
-            $mEnd = Carbon::createFromFormat('Y-m', $mk)->endOfMonth();
+            if (!preg_match('/^\d{4}-\d{2}$/', (string) $mk)) {
+                continue;
+            }
+            try {
+                $mStart = Carbon::createFromFormat('Y-m', $mk)->startOfMonth();
+                $mEnd = Carbon::createFromFormat('Y-m', $mk)->endOfMonth();
+            } catch (\Throwable) {
+                continue;
+            }
             $mOpr = $this->sumOperationalForRange($shopId, $mStart, $mEnd);
             $mAds = $this->sumAdsForRange($shopId, $mStart, $mEnd);
             $m['operational'] = $mOpr;
