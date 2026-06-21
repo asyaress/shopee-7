@@ -26,7 +26,7 @@
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     @php $adsShop = ($recommendations ?? [])['ads_shop'] ?? []; @endphp
@@ -100,7 +100,7 @@
                         @endphp
                         <tr>
                             <td>
-                                <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + request()->query()) }}">{{ $p['name'] ?? '—' }}</a>
+                                <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + request()->query()) }}">{{ $p['name'] ?? '—' }}</a>
                                 @if($ps)<br><span class="price-status-{{ $ps === 'ok' ? 'ok' : ($ps === 'too_low' || $ps === 'not_covering' ? 'low' : 'review') }}">{{ $pr['status_label'] ?? '' }}</span>@endif
                             </td>
                             <td class="num" data-order="{{ (float) ($p['ads_spend'] ?? 0) }}">{{ hub_rp($p['ads_spend'] ?? 0) }}</td>

@@ -36,6 +36,7 @@ import com.toedjoe.android7.ui.theme.Clay50
 import com.toedjoe.android7.ui.theme.Clay900
 import com.toedjoe.android7.ui.theme.Ember50
 import com.toedjoe.android7.ui.theme.Ember600
+import com.toedjoe.android7.ui.theme.Ink
 
 @Composable
 fun AuthScaffold(
@@ -47,7 +48,7 @@ fun AuthScaffold(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(colors = listOf(Color(0xFFF39A90), Color(0xFFF08C83)))),
+            .background(Brush.verticalGradient(colors = listOf(Color(0xFFAA3A3A), Color(0xFFF8E4B7)))),
     ) {
         AuthPatternBackground()
         Box(
@@ -110,12 +111,12 @@ fun BrandBadge(
                     text = "7 CEO Mobile",
                     style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = Ink,
                 )
                 Text(
                     text = "Shopee monitoring cockpit",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.78f),
+                    color = Ink.copy(alpha = 0.72f),
                 )
             }
         }

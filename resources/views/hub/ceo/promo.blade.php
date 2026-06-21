@@ -7,7 +7,7 @@
         <h1><i class="fas fa-tags me-2"></i>Dampak Promo & Fee</h1>
         <p class="small mb-0">{{ $promo['insight'] ?? '' }}</p>
     </div>
-    @include('hub.partials.ceo-nav')
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
     <div class="hub-card">
         <div class="hub-card-body p-0">

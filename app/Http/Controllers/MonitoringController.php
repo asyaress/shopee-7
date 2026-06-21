@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\ProfitOrdersExport;
 use App\Models\Product;
+use App\Services\Ceo\MonthlyTargetService;
+use App\Services\Hpp\HppCompletenessService;
 use App\Services\Reports\ActionCenterService;
 use App\Services\Reports\MonitoringChartService;
 use App\Services\Reports\MultiShopCompareService;
@@ -13,6 +15,7 @@ use App\Services\Shopee\ShopeeBcgSyncService;
 use App\Services\Shopee\ShopeeClient;
 use App\Services\Reports\RetailRekapService;
 use App\Services\Reports\ProductActionEngine;
+use App\Services\Reports\ProductAnalysisService;
 use App\Services\Reports\ProductProfitReportService;
 use App\Services\Reports\ProductSkuClassifier;
 use Illuminate\Http\Request;
@@ -30,6 +33,7 @@ class MonitoringController extends Controller
         private readonly RetailRekapService $retailRekap,
         private readonly BcgFunnelService $bcgFunnel,
         private readonly ProductPerformanceImportService $performanceImport,
+        private readonly ProductAnalysisService $productAnalysis,
     ) {
     }
 
@@ -41,6 +45,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.actions', array_merge($report, [
             'action_center' => $actionCenter,
             'activeSection' => 'actions',
+            'navZone' => 'harian',
         ]));
     }
 
@@ -51,11 +56,18 @@ class MonitoringController extends Controller
         $shopCompare = count(\App\Support\ShopeeShopContext::tokens()) > 1
             ? $this->multiShopCompare->compare($request)
             : [];
+        $actionCenter = $this->actionCenter->build($report);
+        $hppSummary = app(HppCompletenessService::class)->shopSummary();
+        $targetDashboard = app(MonthlyTargetService::class)->dashboard($request);
 
         return view('hub.monitoring.overview', array_merge($report, [
             'charts' => $charts,
             'shop_compare' => $shopCompare,
+            'action_center' => $actionCenter,
+            'hpp_summary' => $hppSummary,
+            'target_dashboard' => $targetDashboard,
             'activeSection' => 'overview',
+            'navZone' => 'harian',
         ]));
     }
 
@@ -67,6 +79,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.shopee', array_merge($report, [
             'charts' => $charts,
             'activeSection' => 'shopee',
+            'navZone' => 'laporan',
         ]));
     }
 
@@ -78,6 +91,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.revenue', array_merge($report, [
             'charts' => $charts,
             'activeSection' => 'revenue',
+            'navZone' => 'laporan',
         ]));
     }
 
@@ -90,6 +104,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.ads', array_merge($report, [
             'charts' => $charts,
             'activeSection' => 'ads',
+            'navZone' => 'marketing',
         ]));
     }
 
@@ -103,6 +118,7 @@ class MonitoringController extends Controller
 
         return view('hub.monitoring', array_merge($report, [
             'activeSection' => 'profit',
+            'navZone' => 'laporan',
         ]));
     }
 
@@ -134,51 +150,43 @@ class MonitoringController extends Controller
         return view('hub.monitoring.matrix', array_merge($report, [
             'quadrants' => $quadrants,
             'activeSection' => 'matrix',
+            'navZone' => 'marketing',
+        ]));
+    }
+
+    public function productAnalysisIndex(Request $request)
+    {
+        $shopId = \App\Support\ShopeeShopContext::shopId();
+        $search = $request->query('q');
+
+        return view('hub.monitoring.product-analysis-index', [
+            'products' => $this->productAnalysis->productPicker($shopId, is_string($search) ? $search : null),
+            'search' => $search,
+            'activeSection' => 'product-analysis',
+            'navZone' => 'tools',
+            'shop' => [
+                'id' => $shopId,
+                'label' => \App\Support\ShopeeShopContext::shopLabel($shopId),
+            ],
+        ]);
+    }
+
+    public function productAnalysis(Request $request, Product $product)
+    {
+        $data = $this->productAnalysis->build($request, $product);
+
+        return view('hub.monitoring.product-analysis', array_merge($data, [
+            'activeSection' => 'product-analysis',
+            'navZone' => 'tools',
         ]));
     }
 
     public function product(Request $request, Product $product)
     {
-        $report = $this->reportService->build($request);
-        $row = collect($report['products'] ?? [])->firstWhere('product_id', $product->id);
-
-        if (!$row) {
-            $row = [
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->external_sku ?? '',
-                'qty' => 0,
-                'gross' => 0,
-                'net' => 0,
-                'cogs' => 0,
-                'ads_spend' => 0,
-                'operational' => 0,
-                'gross_profit' => 0,
-                'net_profit' => 0,
-                'margin' => 0,
-                'roas' => null,
-                'acos' => null,
-                'missing_cost' => true,
-            ];
-            $row['tier'] = $this->classifier->classify($row);
-            $row['action'] = $this->actionEngine->forProduct($row, false);
-        }
-
-        $shopId = \App\Support\ShopeeShopContext::shopId();
-        $itemId = (int) ($product->external_item_id ?? 0);
-        $row['links'] = [
-            'product' => $itemId ? \App\Support\ShopeeLinkHelper::productUrl($shopId, $itemId) : null,
-            'ads' => $itemId ? \App\Support\ShopeeLinkHelper::adsProductUrl($shopId, $itemId) : null,
-        ];
-
-        $simulations = $this->actionEngine->simulate($row, $row['action']['meta'] ?? []);
-
-        return view('hub.monitoring.product', array_merge($report, [
-            'product' => $product,
-            'sku' => $row,
-            'simulations' => $simulations,
-            'activeSection' => 'profit',
-        ]));
+        return redirect()->route('monitoring.product-analysis.show', array_merge(
+            ['product' => $product->id],
+            $request->query()
+        ));
     }
 
     public function rekap(Request $request)
@@ -189,6 +197,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.rekap', array_merge($report, [
             'rekap' => $rekap,
             'activeSection' => 'rekap',
+            'navZone' => 'laporan',
         ]));
     }
 
@@ -205,6 +214,7 @@ class MonitoringController extends Controller
         return view('hub.monitoring.bcg', array_merge($report, [
             'bcg' => $bcg,
             'activeSection' => 'bcg',
+            'navZone' => 'marketing',
         ]));
     }
 
@@ -302,15 +312,7 @@ class MonitoringController extends Controller
 
     public function executive(Request $request)
     {
-        $report = $this->reportService->build($request);
-        $actionCenter = $this->actionCenter->build($report);
-        $shopCompare = $this->multiShopCompare->compare($request);
-
-        return view('hub.monitoring.executive', array_merge($report, [
-            'action_center' => $actionCenter,
-            'shop_compare' => $shopCompare,
-            'activeSection' => 'executive',
-        ]));
+        return redirect()->route('monitoring.index', $request->query());
     }
 
     /** @deprecated use overview() */

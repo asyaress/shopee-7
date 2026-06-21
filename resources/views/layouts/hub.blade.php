@@ -13,7 +13,7 @@
     <link href="{{ asset('css/hub-report.css') }}?v=3" rel="stylesheet">
     <link href="{{ asset('css/hub-pages.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-datatables.css') }}?v=3" rel="stylesheet">
-    <link href="{{ asset('css/hub-monitoring.css') }}?v=5" rel="stylesheet">
+    <link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
     <link href="{{ asset('css/hub-charts.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-mobile.css') }}?v=1" rel="stylesheet">
     @stack('styles')
@@ -36,7 +36,7 @@
                 <i class="fas fa-bolt me-1"></i> Aksi
             </a>
             <a href="{{ route('monitoring.index') }}">
-                <i class="fas fa-chart-line me-1"></i> Monitoring
+                <i class="fas fa-gauge-high me-1"></i> Ringkasan
             </a>
             <a href="{{ route('manage.index') }}" class="{{ request()->routeIs('manage.*') ? 'active' : '' }}">
                 <i class="fas fa-sliders me-1"></i> Kelola Data
@@ -53,44 +53,57 @@
     <div class="hub-shell">
         <div class="hub-sidebar-backdrop" id="hubSidebarBackdrop" aria-hidden="true"></div>
         <aside class="hub-sidebar" id="hubSidebar">
-            <div class="nav-label">Monitoring</div>
-            <a href="{{ route('monitoring.actions') }}" class="nav-sublink {{ request()->routeIs('monitoring.actions') ? 'active' : '' }}">
-                <i class="fas fa-bolt"></i> Pusat Aksi
-            </a>
+            <div class="nav-label">Harian</div>
             <a href="{{ route('monitoring.index') }}" class="{{ request()->routeIs('monitoring.index') ? 'active' : '' }}">
                 <i class="fas fa-gauge-high"></i> Ringkasan
             </a>
-            <a href="{{ route('monitoring.executive') }}" class="nav-sublink {{ request()->routeIs('monitoring.executive') ? 'active' : '' }}">
-                <i class="fas fa-briefcase"></i> CEO Brief
+            <a href="{{ route('monitoring.actions') }}" class="nav-sublink {{ request()->routeIs('monitoring.actions') ? 'active' : '' }}">
+                <i class="fas fa-bolt"></i> Pusat Aksi
             </a>
-            <a href="{{ route('monitoring.shopee') }}" class="nav-sublink {{ request()->routeIs('monitoring.shopee') ? 'active' : '' }}">
-                <i class="fas fa-percent"></i> Potongan Shopee
+            <a href="{{ route('ceo.targets') }}" class="nav-sublink {{ request()->routeIs('ceo.targets') ? 'active' : '' }}">
+                <i class="fas fa-bullseye"></i> Target Bulanan
+            </a>
+
+            <div class="nav-label">Laporan</div>
+            <a href="{{ route('monitoring.profit') }}" class="nav-sublink {{ request()->routeIs('monitoring.profit') ? 'active' : '' }}">
+                <i class="fas fa-chart-pie"></i> Laba Detail
+            </a>
+            <a href="{{ route('monitoring.rekap') }}" class="nav-sublink {{ request()->routeIs('monitoring.rekap') ? 'active' : '' }}">
+                <i class="fas fa-table"></i> Rekap Bulanan
             </a>
             <a href="{{ route('monitoring.revenue') }}" class="nav-sublink {{ request()->routeIs('monitoring.revenue') ? 'active' : '' }}">
                 <i class="fas fa-coins"></i> Pendapatan
             </a>
-            <a href="{{ route('monitoring.ads') }}" class="nav-sublink {{ request()->routeIs('monitoring.ads') ? 'active' : '' }}">
-                <i class="fas fa-bullhorn"></i> Iklan
-            </a>
-            <a href="{{ route('monitoring.profit') }}" class="nav-sublink {{ request()->routeIs('monitoring.profit') ? 'active' : '' }}">
-                <i class="fas fa-chart-pie"></i> Laba & Produk
-            </a>
-            <a href="{{ route('monitoring.matrix') }}" class="nav-sublink {{ request()->routeIs('monitoring.matrix') ? 'active' : '' }}">
-                <i class="fas fa-th"></i> Matrix SKU
-            </a>
-
-            <div class="nav-label">CEO Tools</div>
-            <a href="{{ route('ceo.targets') }}" class="nav-sublink {{ request()->routeIs('ceo.targets') ? 'active' : '' }}">
-                <i class="fas fa-bullseye"></i> Target Bulanan
-            </a>
-            <a href="{{ route('ceo.roas') }}" class="nav-sublink {{ request()->routeIs('ceo.roas') ? 'active' : '' }}">
-                <i class="fas fa-chart-line"></i> ROAS Advisor
+            <a href="{{ route('monitoring.shopee') }}" class="nav-sublink {{ request()->routeIs('monitoring.shopee') ? 'active' : '' }}">
+                <i class="fas fa-percent"></i> Potongan Shopee
             </a>
             <a href="{{ route('ceo.settlement') }}" class="nav-sublink {{ request()->routeIs('ceo.settlement') ? 'active' : '' }}">
                 <i class="fas fa-wallet"></i> Arus Kas
             </a>
+
+            <div class="nav-label">Marketing</div>
+            <a href="{{ route('monitoring.ads') }}" class="nav-sublink {{ request()->routeIs('monitoring.ads') ? 'active' : '' }}">
+                <i class="fas fa-bullhorn"></i> Iklan
+            </a>
+            <a href="{{ route('ceo.roas') }}" class="nav-sublink {{ request()->routeIs('ceo.roas') ? 'active' : '' }}">
+                <i class="fas fa-chart-line"></i> ROAS
+            </a>
+            <a href="{{ route('monitoring.bcg') }}" class="nav-sublink {{ request()->routeIs('monitoring.bcg') ? 'active' : '' }}">
+                <i class="fas fa-chart-scatter"></i> BCG & Trafik
+            </a>
+            <a href="{{ route('monitoring.matrix') }}" class="nav-sublink {{ request()->routeIs('monitoring.matrix') ? 'active' : '' }}">
+                <i class="fas fa-th"></i> Laba per SKU
+            </a>
+
+            <div class="nav-label">Tools</div>
+            <a href="{{ route('ceo.kalkulator') }}" class="nav-sublink {{ request()->routeIs('ceo.kalkulator') ? 'active' : '' }}">
+                <i class="fas fa-calculator"></i> Kalkulator Harga
+            </a>
             <a href="{{ route('ceo.promo') }}" class="nav-sublink {{ request()->routeIs('ceo.promo') ? 'active' : '' }}">
-                <i class="fas fa-tags"></i> Promo & Fee
+                <i class="fas fa-tags"></i> Promo & Diskon
+            </a>
+            <a href="{{ route('monitoring.product-analysis.index') }}" class="nav-sublink {{ request()->routeIs('monitoring.product-analysis.*') ? 'active' : '' }}">
+                <i class="fas fa-microscope"></i> Analisis Produk
             </a>
             <a href="{{ route('ceo.decisions') }}" class="nav-sublink {{ request()->routeIs('ceo.decisions') ? 'active' : '' }}">
                 <i class="fas fa-clipboard-list"></i> Log Keputusan
@@ -145,9 +158,9 @@
             <i class="fas fa-bolt"></i>
             Aksi
         </a>
-        <a href="{{ route('monitoring.index') }}" class="{{ request()->routeIs('monitoring.*') && !request()->routeIs('monitoring.actions') ? 'active' : '' }}">
-            <i class="fas fa-chart-line"></i>
-            Monitor
+        <a href="{{ route('monitoring.index') }}" class="{{ request()->routeIs('monitoring.index') || request()->routeIs('ceo.targets') ? 'active' : '' }}">
+            <i class="fas fa-gauge-high"></i>
+            Ringkas
         </a>
         <a href="{{ route('manage.index') }}" class="{{ request()->routeIs('manage.*') ? 'active' : '' }}">
             <i class="fas fa-sliders"></i>

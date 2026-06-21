@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     @if(!($hpp['recommendations_allowed'] ?? true))

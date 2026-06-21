@@ -7,7 +7,7 @@
     <div class="card-head">
         <div>
             @if(!empty($p['product_id']))
-            <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + request()->query()) }}" class="name">{{ $p['name'] }}</a>
+            <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + request()->query()) }}" class="name">{{ $p['name'] }}</a>
             @else
             <span class="name">{{ $p['name'] }}</span>
             @endif

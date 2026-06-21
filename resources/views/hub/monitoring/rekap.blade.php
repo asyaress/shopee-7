@@ -20,7 +20,7 @@
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
 
     <div class="mon-kpi-row">
         <div class="mon-kpi"><div class="label">AOV kotor (periode)</div><div class="value">{{ hub_rp($s['aov_gross'] ?? 0) }}</div></div>

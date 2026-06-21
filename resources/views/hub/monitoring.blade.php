@@ -1,9 +1,9 @@
 @extends('layouts.hub')
 
-@section('title', 'Monitoring — Laba & Produk')
+@section('title', 'Laba Detail — Laporan Keuangan')
 
 @push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=1" rel="stylesheet">
+<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -23,7 +23,7 @@
     <div class="report-hero">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
             <div>
-                <h1><i class="fas fa-chart-line me-2"></i>Laporan Kinerja Toko Shopee</h1>
+                <h1><i class="fas fa-chart-pie me-2"></i>Laba Detail</h1>
                 <div class="report-hero-meta">
                     <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
                     <span><i class="far fa-clock"></i> {{ $meta['days'] ?? 0 }} hari</span>
@@ -49,7 +49,7 @@
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav', ['activeSection' => $activeSection ?? 'profit'])
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     {{-- Insights --}}
@@ -306,7 +306,7 @@
                             <td class="text-muted">{{ $i + 1 }}</td>
                             <td class="product-cell">
                                 @if(!empty($p['product_id']))
-                                <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + request()->query()) }}" class="name text-decoration-none" title="{{ $p['name'] }}">{{ $p['name'] }}</a>
+                                <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + request()->query()) }}" class="name text-decoration-none" title="{{ $p['name'] }}">{{ $p['name'] }}</a>
                                 @include('hub.partials.product-shopee-links', ['links' => $p['links'] ?? []])
                                 @else
                                 <span class="name" title="{{ $p['name'] }}">{{ $p['name'] }}</span>

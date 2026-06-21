@@ -73,4 +73,10 @@ return [
 
     /** Rekap grid — jumlah bulan tampil */
     'rekap_months' => (int) env('MONITORING_REKAP_MONTHS', 12),
+
+    'price_calculator' => [
+        'default_admin_pct' => (float) env('PRICE_CALC_ADMIN_PCT', 0.18),
+        'default_operational_pct' => (float) env('PRICE_CALC_OPS_PCT', 0.08),
+        'default_target_net_pct' => (float) env('PRICE_CALC_TARGET_NET_PCT', 15),
+    ],
 ];

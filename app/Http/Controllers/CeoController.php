@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Services\Ceo\AccountingExportService;
 use App\Services\Ceo\CeoAlertService;
 use App\Services\Ceo\DecisionLogService;
 use App\Services\Ceo\MonthlyTargetService;
 use App\Services\Ceo\PromoAnalysisService;
+use App\Services\Ceo\PriceCalculatorService;
 use App\Services\Ceo\RoasAdvisorService;
 use App\Services\Ceo\SettlementEstimateService;
 use App\Support\ShopeeShopContext;
@@ -25,6 +27,7 @@ class CeoController extends Controller
         private readonly DecisionLogService $decisions,
         private readonly AccountingExportService $accounting,
         private readonly CeoAlertService $alerts,
+        private readonly PriceCalculatorService $priceCalculator,
     ) {
     }
 
@@ -34,6 +37,7 @@ class CeoController extends Controller
 
         return view('hub.ceo.targets', array_merge($data, [
             'activeSection' => 'targets',
+            'navZone' => 'harian',
             'shop' => ['id' => ShopeeShopContext::shopId(), 'label' => ShopeeShopContext::shopLabel(ShopeeShopContext::shopId())],
         ]));
     }
@@ -61,6 +65,7 @@ class CeoController extends Controller
         return view('hub.ceo.settlement', [
             'cashflow' => $this->settlement->build(8),
             'activeSection' => 'settlement',
+            'navZone' => 'laporan',
             'shop' => ['label' => ShopeeShopContext::shopLabel(ShopeeShopContext::shopId())],
         ]);
     }
@@ -70,18 +75,47 @@ class CeoController extends Controller
         return view('hub.ceo.promo', [
             'promo' => $this->promo->analyze($request),
             'activeSection' => 'promo',
+            'navZone' => 'tools',
             'filters' => $request->query(),
         ]);
     }
 
     public function roas(Request $request): View
     {
+        $request->attributes->set('include_all_products', true);
         $report = app(\App\Services\Reports\ProductProfitReportService::class)->build($request);
 
         return view('hub.ceo.roas', [
             'roas' => $this->roasAdvisor->shopAdvice($report),
             'report' => $report,
             'activeSection' => 'roas',
+            'navZone' => null,
+            'shop' => ['label' => ShopeeShopContext::shopLabel(ShopeeShopContext::shopId())],
+        ]);
+    }
+
+    public function kalkulator(Request $request): View
+    {
+        $product = null;
+        if ($request->filled('product_id')) {
+            $product = Product::find((int) $request->query('product_id'));
+        }
+
+        $defaults = $this->priceCalculator->defaults($request, $product);
+        $results = $this->priceCalculator->calculate(array_merge($defaults, $request->only([
+            'hpp', 'packaging', 'sell_price', 'admin_pct', 'operational_pct',
+            'target_net_margin_pct', 'target_gross_monthly', 'operational_monthly',
+            'ads_per_unit', 'shopee_roas_discount',
+        ])));
+
+        return view('hub.ceo.kalkulator', [
+            'products' => $this->priceCalculator->productOptions(),
+            'defaults' => $defaults,
+            'results' => $results,
+            'selectedProduct' => $product,
+            'activeSection' => 'kalkulator',
+            'navZone' => 'tools',
+            'shop' => ['label' => ShopeeShopContext::shopLabel(ShopeeShopContext::shopId())],
         ]);
     }
 
@@ -90,6 +124,7 @@ class CeoController extends Controller
         return view('hub.ceo.decisions', [
             'logs' => $this->decisions->recent(100),
             'activeSection' => 'decisions',
+            'navZone' => 'tools',
         ]);
     }
 

@@ -45,7 +45,7 @@
         @endif
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
 
     @if(session('success'))
     <div class="hub-alert hub-alert-success mb-3">{{ session('success') }}</div>
@@ -145,7 +145,7 @@
                         <tr>
                             <td>
                                 @if($p['product_id'])
-                                <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + $q) }}">{{ \Illuminate\Support\Str::limit($p['name'], 32) }}</a>
+                                <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + $q) }}">{{ \Illuminate\Support\Str::limit($p['name'], 32) }}</a>
                                 @else
                                 {{ \Illuminate\Support\Str::limit($p['name'], 32) }}
                                 @endif

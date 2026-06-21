@@ -1,23 +1,23 @@
 @extends('layouts.hub')
 
-@section('title', 'Matrix SKU — Monitoring')
+@section('title', 'Laba per SKU')
 
 @push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=2" rel="stylesheet">
+<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
 @endpush
 
 @section('content')
 @php $q = request()->query(); @endphp
 <div class="report-shell">
     <div class="report-hero">
-        <h1><i class="fas fa-th me-2"></i>Matrix SKU</h1>
+        <h1><i class="fas fa-th me-2"></i>Laba per SKU</h1>
         <div class="report-hero-meta">
             <span><i class="fas fa-store"></i> {{ $shop['label'] ?? '—' }}</span>
             <span>{{ $meta['period_label'] ?? '' }}</span>
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     @php
@@ -37,7 +37,7 @@
             <ul class="mon-matrix-list">
                 @foreach(array_slice($quadrants[$key] ?? [], 0, 12) as $p)
                 <li>
-                    <a href="{{ route('monitoring.product', ['product' => $p['product_id']] + $q) }}">{{ $p['name'] }}</a>
+                    <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + $q) }}">{{ $p['name'] }}</a>
                     @include('hub.partials.product-shopee-links', ['links' => $p['links'] ?? []])
                     <span class="{{ ($p['net_profit'] ?? 0) >= 0 ? 'amt-pos' : 'amt-neg' }}">{{ hub_rp($p['net_profit'] ?? 0, true) }}</span>
                 </li>

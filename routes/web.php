@@ -53,6 +53,8 @@ Route::middleware('simple.auth')->group(function () {
         Route::post('/bcg/sync', [MonitoringController::class, 'syncBcgPerformance'])->name('bcg.sync');
         Route::post('/bcg/targets', [MonitoringController::class, 'saveProductTargets'])->name('bcg.targets');
         Route::get('/ceo', [MonitoringController::class, 'executive'])->name('executive');
+        Route::get('/analisis-produk', [MonitoringController::class, 'productAnalysisIndex'])->name('product-analysis.index');
+        Route::get('/analisis-produk/{product}', [MonitoringController::class, 'productAnalysis'])->name('product-analysis.show');
         Route::get('/produk/{product}', [MonitoringController::class, 'product'])->name('product');
     });
     Route::get('/', [MonitoringController::class, 'overview']);
@@ -74,6 +76,7 @@ Route::middleware('simple.auth')->group(function () {
         Route::post('/settlement/import', [MonitoringController::class, 'importSettlement'])->name('settlement.import');
         Route::get('/promo', [CeoController::class, 'promo'])->name('promo');
         Route::get('/roas', [CeoController::class, 'roas'])->name('roas');
+        Route::get('/kalkulator', [CeoController::class, 'kalkulator'])->name('kalkulator');
         Route::get('/decisions', [CeoController::class, 'decisions'])->name('decisions');
         Route::post('/decisions', [CeoController::class, 'storeDecision'])->name('decisions.store');
         Route::get('/export/journal', [CeoController::class, 'exportJournal'])->name('export.journal');

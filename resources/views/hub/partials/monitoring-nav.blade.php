@@ -2,18 +2,19 @@
     $active = $activeSection ?? 'overview';
     $q = request()->query();
     $tabs = [
-        'actions' => ['route' => 'monitoring.actions', 'icon' => 'fa-bolt', 'label' => 'Pusat Aksi', 'short' => 'Aksi'],
         'overview' => ['route' => 'monitoring.index', 'icon' => 'fa-gauge-high', 'label' => 'Ringkasan', 'short' => 'Ringkas'],
-        'executive' => ['route' => 'monitoring.executive', 'icon' => 'fa-briefcase', 'label' => 'CEO', 'short' => 'CEO'],
-        'shopee' => ['route' => 'monitoring.shopee', 'icon' => 'fa-percent', 'label' => 'Potongan', 'short' => 'Fee'],
-        'revenue' => ['route' => 'monitoring.revenue', 'icon' => 'fa-coins', 'label' => 'Pendapatan', 'short' => 'Omzet'],
-        'ads' => ['route' => 'monitoring.ads', 'icon' => 'fa-bullhorn', 'label' => 'Iklan', 'short' => 'Iklan'],
-        'matrix' => ['route' => 'monitoring.matrix', 'icon' => 'fa-th', 'label' => 'Matrix', 'short' => 'Matrix'],
-        'bcg' => ['route' => 'monitoring.bcg', 'icon' => 'fa-chart-scatter', 'label' => 'BCG', 'short' => 'BCG'],
-        'rekap' => ['route' => 'monitoring.rekap', 'icon' => 'fa-table', 'label' => 'Rekap', 'short' => 'Rekap'],
+        'actions' => ['route' => 'monitoring.actions', 'icon' => 'fa-bolt', 'label' => 'Pusat Aksi', 'short' => 'Aksi'],
         'profit' => ['route' => 'monitoring.profit', 'icon' => 'fa-chart-pie', 'label' => 'Laba', 'short' => 'Laba'],
+        'rekap' => ['route' => 'monitoring.rekap', 'icon' => 'fa-table', 'label' => 'Rekap', 'short' => 'Rekap'],
+        'revenue' => ['route' => 'monitoring.revenue', 'icon' => 'fa-coins', 'label' => 'Pendapatan', 'short' => 'Omzet'],
+        'shopee' => ['route' => 'monitoring.shopee', 'icon' => 'fa-percent', 'label' => 'Potongan', 'short' => 'Fee'],
+        'ads' => ['route' => 'monitoring.ads', 'icon' => 'fa-bullhorn', 'label' => 'Iklan', 'short' => 'Iklan'],
+        'matrix' => ['route' => 'monitoring.matrix', 'icon' => 'fa-th', 'label' => 'Laba SKU', 'short' => 'SKU'],
+        'bcg' => ['route' => 'monitoring.bcg', 'icon' => 'fa-chart-scatter', 'label' => 'BCG', 'short' => 'BCG'],
     ];
+    $showTabs = !in_array($active, ['product-analysis'], true);
 @endphp
+@if($showTabs)
 <nav class="mon-subnav mon-subnav--scroll" aria-label="Navigasi monitoring">
     @foreach($tabs as $key => $tab)
         <a href="{{ route($tab['route'], $q) }}" class="{{ $active === $key ? 'active' : '' }}" title="{{ $tab['label'] }}">
@@ -23,3 +24,4 @@
         </a>
     @endforeach
 </nav>
+@endif

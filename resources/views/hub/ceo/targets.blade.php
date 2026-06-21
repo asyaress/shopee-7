@@ -8,7 +8,7 @@
         <h1><i class="fas fa-bullseye me-2"></i>Target vs Actual</h1>
         <div class="report-hero-meta"><span>{{ $shop['label'] ?? '' }}</span><span>Bulan {{ $year_month }}</span></div>
     </div>
-    @include('hub.partials.ceo-nav')
+    @include('hub.partials.hub-zone-nav')
     <div class="hub-card mb-3">
         <div class="hub-card-body">
             <form method="POST" action="{{ route('ceo.targets.save') }}" class="hub-filter-bar">

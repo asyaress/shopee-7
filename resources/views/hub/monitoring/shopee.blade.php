@@ -25,7 +25,7 @@
         </div>
     </div>
 
-    @include('hub.partials.monitoring-nav')
+    @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     <div class="mon-kpi-row">

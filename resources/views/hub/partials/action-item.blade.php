@@ -7,7 +7,7 @@
 <div class="mon-action-item mon-action-{{ $sev }}">
     <div class="mon-action-head">
         <span class="sku-tier {{ $item['tier'] ?? '' }}">{{ strtoupper($item['tier'] ?? '—') }}</span>
-        <a href="{{ $pid ? route('monitoring.product', ['product' => $pid] + $q) : '#' }}" class="mon-action-name">{{ $item['name'] ?? '—' }}</a>
+        <a href="{{ $pid ? route('monitoring.product-analysis.show', ['product' => $pid] + $q) : '#' }}" class="mon-action-name">{{ $item['name'] ?? '—' }}</a>
     </div>
     <div class="mon-action-title">{{ $action['title'] ?? '' }}</div>
     <p class="mon-action-summary small text-muted mb-1">{{ $action['summary'] ?? '' }}</p>

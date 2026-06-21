@@ -8,7 +8,7 @@
         <h1><i class="fas fa-wallet me-2"></i>Estimasi Arus Kas</h1>
         <p class="small opacity-90 mb-0">{{ $cashflow['note'] ?? '' }}</p>
     </div>
-    @include('hub.partials.ceo-nav')
+    @include('hub.partials.hub-zone-nav')
 
     <div class="mon-kpi-row mb-3">
         <div class="mon-kpi"><div class="label">Dana pending</div><div class="value">{{ hub_rp($cashflow['pending_settlement'] ?? 0) }}</div></div>

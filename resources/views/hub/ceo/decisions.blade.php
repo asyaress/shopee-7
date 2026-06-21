@@ -7,7 +7,7 @@
         <h1><i class="fas fa-clipboard-list me-2"></i>Log Keputusan</h1>
         <p class="small mb-0">Catat apa yang Anda lakukan (potong iklan, naik harga, dll.) untuk evaluasi minggu depan.</p>
     </div>
-    @include('hub.partials.ceo-nav')
+    @include('hub.partials.hub-zone-nav')
 
     <div class="hub-card mb-3">
         <div class="hub-card-header"><h2 class="report-section-title">Tambah catatan</h2></div>

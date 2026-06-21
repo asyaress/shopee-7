@@ -447,3 +447,45 @@
 @media (max-width: 576px) {
     .mon-chart-card .mon-chart-body { height: 220px; }
 }
+
+/* Zone navigation */
+.mon-subnav--harian a.active { border-bottom-color: #6b1528; }
+.mon-subnav--laporan a.active { border-bottom-color: #2563eb; }
+.mon-subnav--marketing a.active { border-bottom-color: #059669; }
+.mon-subnav--tools a.active { border-bottom-color: #d97706; }
+
+.mon-subnav span { font-size: 0.8125rem; }
+
+/* Cockpit CEO */
+.cockpit-alert-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.cockpit-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    border: 1px solid transparent;
+}
+.cockpit-alert a { font-weight: 600; text-decoration: underline; }
+.cockpit-alert.warn { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.cockpit-alert.danger { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+
+.report-kpi-card.highlight {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+}
+.report-kpi-card.highlight .value { color: #b45309; }
+
+.hub-pill-light {
+    background: rgba(255,255,255,.2);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.35);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+}
