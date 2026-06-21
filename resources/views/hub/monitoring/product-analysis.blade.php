@@ -3,7 +3,6 @@
 @section('title', ($sku['name'] ?? $product->name) . ' — Analisis Produk')
 
 @push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
 <style>
 .pa-section { margin-bottom: 1.25rem; }
 .pa-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
@@ -20,8 +19,12 @@
     $q = request()->query();
     $meta = $report['meta'] ?? [];
     $ceoActionSkip = true;
-    $heroExtra = '<a href="'.route('monitoring.product-analysis.index', $q).'" class="small"><i class="fas fa-arrow-left"></i> Ganti produk</a>'
-        .' · <strong>'.e($s['name'] ?? $product->name).'</strong>';
+    $pageMeta = [
+        ['icon' => 'fas fa-box', 'label' => 'SKU', 'value' => $s['name'] ?? $product->name],
+    ];
+    $pageActions = [
+        ['label' => 'Ganti produk', 'url' => route('monitoring.product-analysis.index', $q), 'icon' => 'fa-arrow-left', 'variant' => 'outline'],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

@@ -10,7 +10,10 @@
 @php
     $st = $stats ?? [];
     $f = $filters ?? [];
-    $heroExtra = '<span class="small text-muted">'.($st['pct'] ?? 0).'% produk sudah punya HPP · '.hub_num($st['variants'] ?? 0).' varian</span>';
+    $pageMeta = [
+        ['icon' => 'fas fa-check-circle', 'label' => 'HPP terisi', 'value' => ($st['pct'] ?? 0).'%'],
+        ['icon' => 'fas fa-layer-group', 'label' => 'Varian', 'value' => hub_num($st['variants'] ?? 0)],
+    ];
 @endphp
 
 <div class="hpp-workspace">

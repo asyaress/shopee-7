@@ -9,7 +9,10 @@
     $fb = $fee_breakdown ?? [];
     $fbPct = $fee_breakdown_pct ?? [];
     $charts = $charts ?? [];
-    $heroExtra = '<span class="small text-muted">Fee total '.hub_rp($s['fee_total'] ?? 0).' · Take rate '.hub_pct($s['take_rate'] ?? null).'</span>';
+    $pageMeta = [
+        ['icon' => 'fas fa-percent', 'label' => 'Fee total', 'value' => hub_rp($s['fee_total'] ?? 0)],
+        ['icon' => 'fas fa-chart-pie', 'label' => 'Take rate', 'value' => hub_pct($s['take_rate'] ?? null)],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

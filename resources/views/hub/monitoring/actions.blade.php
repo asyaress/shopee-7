@@ -8,7 +8,10 @@
     $hpp = $ac['hpp_quality'] ?? [];
     $cash = $ac['cash_guard'] ?? [];
     $shop = $shop ?? [];
-    $heroExtra = '<span class="small text-muted"><i class="fas fa-store"></i> '.e($shop['label'] ?? $activeShopeeShopLabel ?? 'Toko').' · HPP '.e($hpp['complete_pct_label'] ?? '—').'</span>';
+    $pageMeta = [
+        ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? $activeShopeeShopLabel ?? 'Toko'],
+        ['icon' => 'fas fa-box', 'label' => 'HPP terisi', 'value' => $hpp['complete_pct_label'] ?? '—'],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

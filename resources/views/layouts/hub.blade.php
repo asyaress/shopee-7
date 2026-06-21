@@ -10,10 +10,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link href="{{ asset('css/hub.css') }}?v=4" rel="stylesheet">
-    <link href="{{ asset('css/hub-report.css') }}?v=3" rel="stylesheet">
+    <link href="{{ asset('css/hub-report.css') }}?v=4" rel="stylesheet">
     <link href="{{ asset('css/hub-pages.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-datatables.css') }}?v=3" rel="stylesheet">
-    <link href="{{ asset('css/hub-monitoring.css') }}?v=8" rel="stylesheet">
+    <link href="{{ asset('css/hub-monitoring.css') }}?v=10" rel="stylesheet">
     <link href="{{ asset('css/hub-charts.css') }}?v=3" rel="stylesheet">
     <link href="{{ asset('css/hub-mobile.css') }}?v=1" rel="stylesheet">
     <link href="{{ asset('css/hub-chatbot.css') }}?v=2" rel="stylesheet">
@@ -188,10 +188,6 @@
         window.fmtPct = (r) => r == null ? '—' : (r * 100).toFixed(1) + '%';
     </script>
     @stack('scripts')
-    @if(!empty($ceoGuide))
-        @include('hub.partials.ceo.highlight')
-        <script src="{{ asset('js/ceo-guide.js') }}?v=1"></script>
-    @endif
     @include('hub.partials.ceo.chatbot')
     <script src="{{ asset('js/hub-chatbot.js') }}?v=2"></script>
 </body>

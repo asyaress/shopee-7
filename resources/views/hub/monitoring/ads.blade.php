@@ -12,7 +12,10 @@
     $meta = $meta ?? [];
     $charts = $charts ?? [];
     $roas = $charts['roas_acos'] ?? [];
-    $heroExtra = '<span class="small text-muted">Iklan '.hub_rp($s['ads_total'] ?? 0).' · ROAS '.(isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 1).'x' : '—').'</span>';
+    $pageMeta = [
+        ['icon' => 'fas fa-bullhorn', 'label' => 'Spend iklan', 'value' => hub_rp($s['ads_total'] ?? 0)],
+        ['icon' => 'fas fa-chart-line', 'label' => 'ROAS', 'value' => isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 1).'x' : '—'],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

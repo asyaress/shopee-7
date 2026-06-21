@@ -13,11 +13,13 @@
     $fbPct = $fee_breakdown_pct ?? [];
     $health = $analysis['health_score'] ?? 0;
     $q = request()->query();
-    $heroExtra = '<div class="d-flex flex-wrap align-items-center gap-2 small text-muted">'
-        .'<span><i class="far fa-calendar-alt"></i> '.e($meta['period_label'] ?? '—').'</span>'
-        .'<span class="d-inline-flex align-items-center gap-1"><span class="report-health-ring" style="--score:'.$health.';width:32px;height:32px;font-size:0.7rem"><span>'.$health.'</span></span> Skor data</span>'
-        .'<a href="'.route('monitoring.profit', array_merge($q, ['export' => 'xlsx'])).'" class="hub-btn hub-btn-sm hub-btn-outline">Export Excel</a>'
-        .'</div>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
+        ['type' => 'score', 'label' => 'Skor data', 'value' => $health, 'hint' => $health >= 70 ? 'Data layak' : 'Perlu lengkapi HPP'],
+    ];
+    $pageActions = [
+        ['label' => 'Export Excel', 'url' => route('monitoring.profit', array_merge($q, ['export' => 'xlsx'])), 'icon' => 'fa-file-excel', 'variant' => 'outline'],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

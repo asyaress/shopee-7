@@ -4,7 +4,10 @@
 @php
     $p = $progress ?? [];
     $pace = $pace ?? [];
-    $heroExtra = '<span class="small text-muted">Bulan '.e($year_month).' · '.e($shop['label'] ?? '').'</span>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Bulan', 'value' => $year_month],
+        ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? '—'],
+    ];
 @endphp
 @include('hub.partials.ceo.shell-open')
     @include('hub.partials.hub-zone-nav')

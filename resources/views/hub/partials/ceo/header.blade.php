@@ -1,19 +1,17 @@
 @php $g = $ceoGuide ?? null; @endphp
 @if($g)
-<div class="ceo-page-header report-hero report-hero--compact mb-2" data-ceo="hero">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-        <div>
-            <h1 class="h4 mb-0"><i class="fas {{ $g['icon'] }} me-2"></i>{{ $g['title'] }}</h1>
-            @if(!empty($g['subtitle']))
-            <p class="ceo-page-sub mb-0">{{ $g['subtitle'] }}</p>
-            @endif
+<header class="ceo-page-header">
+    <div class="ceo-page-top">
+        <div class="ceo-page-brand">
+            <span class="ceo-page-icon" aria-hidden="true"><i class="fas {{ $g['icon'] }}"></i></span>
+            <div class="ceo-page-titles">
+                <h1 class="ceo-page-title">{{ $g['title'] }}</h1>
+                @if(!empty($g['subtitle']))
+                <p class="ceo-page-sub">{{ $g['subtitle'] }}</p>
+                @endif
+            </div>
         </div>
-        <button type="button" class="ceo-help-btn" data-ceo-reopen title="Buka panduan halaman">
-            <i class="fas fa-circle-question"></i> Panduan
-        </button>
     </div>
-    @if(!empty($heroExtra))
-    <div class="ceo-page-extra mt-2">{!! $heroExtra !!}</div>
-    @endif
-</div>
+    @include('hub.partials.ceo.meta-toolbar')
+</header>
 @endif

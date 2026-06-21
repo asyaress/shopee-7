@@ -3,7 +3,13 @@
 @section('title', 'Laba per SKU')
 
 @section('content')
-@php $q = request()->query(); $heroExtra = '<span class="small text-muted">'.e($shop['label'] ?? '').' · '.e($meta['period_label'] ?? '').'</span>'; @endphp
+@php
+    $q = request()->query();
+    $pageMeta = [
+        ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? '—'],
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
+    ];
+@endphp
 @include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')

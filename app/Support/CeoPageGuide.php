@@ -29,7 +29,6 @@ class CeoPageGuide
             'title' => $page['title'] ?? 'Halaman',
             'subtitle' => $page['subtitle'] ?? '',
             'action' => $page['action'] ?? null,
-            'highlights' => $page['highlights'] ?? [],
             'glossary' => array_merge($shared, $extra),
             'formulas' => array_merge(
                 config('ceo_guide.shared_formulas', []),

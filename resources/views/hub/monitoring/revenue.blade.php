@@ -7,7 +7,10 @@
     $s = $summary ?? [];
     $meta = $meta ?? [];
     $charts = $charts ?? [];
-    $heroExtra = '<span class="small text-muted"><i class="far fa-calendar-alt"></i> '.e($meta['period_label'] ?? '—').' · '.hub_num($s['orders_count'] ?? 0).' order</span>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
+        ['icon' => 'fas fa-shopping-bag', 'label' => 'Order', 'value' => hub_num($s['orders_count'] ?? 0)],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

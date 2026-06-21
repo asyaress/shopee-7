@@ -14,11 +14,11 @@
     $pace = $td['pace'] ?? [];
     $progress = $td['progress'] ?? [];
     $q = request()->query();
-    $heroExtra = '<div class="d-flex flex-wrap align-items-center gap-3 small text-muted">'
-        .'<span><i class="far fa-calendar-alt"></i> '.e($meta['period_label'] ?? '—').'</span>'
-        .'<span><i class="fas fa-store"></i> '.e($shop['label'] ?? '').'</span>'
-        .'<span class="d-inline-flex align-items-center gap-1"><span class="report-health-ring" style="--score:'.$health.';width:36px;height:36px;font-size:0.75rem"><span>'.$health.'</span></span> Skor kesehatan</span>'
-        .'</div>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
+        ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? '—'],
+        ['type' => 'score', 'label' => 'Skor kesehatan', 'value' => $health],
+    ];
 @endphp
 
 @include('hub.partials.ceo.shell-open')

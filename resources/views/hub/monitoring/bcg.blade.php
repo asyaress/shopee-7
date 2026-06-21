@@ -16,7 +16,9 @@
         'question_mark' => ['key' => 'question_mark', 'label' => 'Question Mark', 'icon' => 'fa-question', 'class' => 'bcg-qm'],
         'dog' => ['key' => 'dog', 'label' => 'Dog', 'icon' => 'fa-paw', 'class' => 'bcg-dog'],
     ];
-    $heroExtra = '<span class="small text-muted">'.e($bcg['period']['label'] ?? '').'</span>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Periode BCG', 'value' => $bcg['period']['label'] ?? '—'],
+    ];
 @endphp
 @include('hub.partials.ceo.shell-open')
 

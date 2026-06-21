@@ -10,7 +10,10 @@
     $columns = $rek['columns'] ?? [];
     $metrics = $rek['metrics'] ?? [];
     $best = $rek['best_sellers'] ?? [];
-    $heroExtra = '<span class="small text-muted">'.count($months).' bulan · '.e($shop['label'] ?? '').'</span>';
+    $pageMeta = [
+        ['icon' => 'far fa-calendar-alt', 'label' => 'Bulan', 'value' => count($months).' bulan'],
+        ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? '—'],
+    ];
     $rekChartLabels = [];
     $rekGross = [];
     $rekNetProfit = [];
