@@ -58,16 +58,18 @@
     });
 
     /** Scroll active monitoring tab into view */
-    const subnav = document.querySelector('.mon-subnav--scroll');
-    if (subnav) {
-        const active = subnav.querySelector('a.active');
-        if (active) {
-            requestAnimationFrame(function () {
-                const left = active.offsetLeft - subnav.offsetWidth / 2 + active.offsetWidth / 2;
-                subnav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
-            });
-        }
+    function scrollActiveTab(container) {
+        if (!container) return;
+        const active = container.querySelector('a.active');
+        if (!active) return;
+        requestAnimationFrame(function () {
+            const left = active.offsetLeft - container.offsetWidth / 2 + active.offsetWidth / 2;
+            container.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+        });
     }
+
+    scrollActiveTab(document.querySelector('.mon-subnav--scroll'));
+    scrollActiveTab(document.querySelector('.ceo-nav-scroll'));
 
     /** Product search: table + mobile cards */
     const search = document.getElementById('productSearch');

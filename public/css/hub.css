@@ -172,6 +172,8 @@ body.hub-body {
     flex: 1;
     padding: 1.25rem;
     min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
     padding-bottom: calc(var(--bottom-nav-h) + 1rem);
 }
 
