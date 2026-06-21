@@ -10,6 +10,7 @@ use App\Http\Controllers\HppController;
 use App\Http\Controllers\ManageController;
 use App\Http\Controllers\CeoController;
 use App\Http\Controllers\CeoChatbotController;
+use App\Http\Controllers\HubExportController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\ProfitReportController;
 use App\Http\Controllers\ShopSwitchController;
@@ -59,6 +60,9 @@ Route::middleware('simple.auth')->group(function () {
         Route::get('/produk/{product}', [MonitoringController::class, 'product'])->name('product');
         Route::get('/chatbot/bootstrap', [CeoChatbotController::class, 'bootstrap'])->name('chatbot.bootstrap');
         Route::post('/chatbot/ask', [CeoChatbotController::class, 'ask'])->name('chatbot.ask');
+        Route::get('/export/{type}', [HubExportController::class, 'download'])
+            ->name('export')
+            ->where('type', 'profit|roas|rekap|product-analysis|overview|actions|ads|revenue');
     });
     Route::get('/', [MonitoringController::class, 'overview']);
 

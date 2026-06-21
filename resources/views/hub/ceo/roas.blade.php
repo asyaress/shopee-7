@@ -8,6 +8,7 @@
     $q = request()->query();
     $setRoas = $sc['set_roas_shopee'] ?? null;
     $ceoActionSkip = true;
+    $pageActions = hub_export_page_actions('roas', $q);
 @endphp
 @include('hub.partials.ceo.shell-open')
 
@@ -58,14 +59,17 @@
 
     <div id="roas-products" class="mb-3" data-ceo="products">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-            <h2 class="h6 mb-0 fw-semibold">Per produk — lakukan ini</h2>
+            <div>
+                <h2 class="h6 mb-0 fw-semibold">Per produk — lakukan ini</h2>
+                <p class="roas-products-sub mb-0">{{ $counts['total'] ?? 0 }} produk · {{ $counts['with_ads'] ?? 0 }} dengan iklan</p>
+            </div>
             <div class="roas-count-pills">
                 @if(($counts['scale'] ?? 0) > 0)<span class="roas-pill scale">{{ $counts['scale'] }} boleh tambah</span>@endif
                 @if(($counts['cut'] ?? 0) > 0)<span class="roas-pill cut">{{ $counts['cut'] }} kurangi/stop</span>@endif
             </div>
         </div>
 
-        @forelse($roas['products'] ?? [] as $p)
+        @forelse($productsPaginator ?? [] as $p)
         @php $a = $p['action'] ?? []; @endphp
         <div class="roas-product-card roas-action-{{ $a['severity'] ?? 'info' }}">
             <div class="roas-product-main">
@@ -83,10 +87,20 @@
         @empty
         <div class="ceo-empty-state">
             <i class="fas fa-bullhorn"></i>
-            <p>Belum ada data iklan periode ini.</p>
-            <a href="{{ route('manage.index') }}" class="hub-btn hub-btn-sm hub-btn-primary">Sync iklan dulu</a>
+            <p>Belum ada produk di toko ini.</p>
+            <a href="{{ route('manage.index') }}" class="hub-btn hub-btn-sm hub-btn-primary">Sync produk & iklan</a>
         </div>
         @endforelse
+
+        @if(isset($productsPaginator) && $productsPaginator->total() > 0)
+        <div class="hub-pagination mt-3">
+            <span class="hub-pagination-info">
+                Menampilkan {{ $productsPaginator->firstItem() ?? 0 }}–{{ $productsPaginator->lastItem() ?? 0 }}
+                dari {{ $productsPaginator->total() }} produk
+            </span>
+            {{ $productsPaginator->withQueryString()->links() }}
+        </div>
+        @endif
     </div>
 
 @include('hub.partials.ceo.shell-close')

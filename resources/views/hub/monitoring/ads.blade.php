@@ -12,10 +12,12 @@
     $meta = $meta ?? [];
     $charts = $charts ?? [];
     $roas = $charts['roas_acos'] ?? [];
+    $q = request()->query();
     $pageMeta = [
         ['icon' => 'fas fa-bullhorn', 'label' => 'Spend iklan', 'value' => hub_rp($s['ads_total'] ?? 0)],
         ['icon' => 'fas fa-chart-line', 'label' => 'ROAS', 'value' => isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 1).'x' : '—'],
     ];
+    $pageActions = hub_export_page_actions('ads', $q);
 @endphp
 
 @include('hub.partials.ceo.shell-open')

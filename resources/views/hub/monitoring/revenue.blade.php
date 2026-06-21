@@ -7,10 +7,12 @@
     $s = $summary ?? [];
     $meta = $meta ?? [];
     $charts = $charts ?? [];
+    $q = request()->query();
     $pageMeta = [
         ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
         ['icon' => 'fas fa-shopping-bag', 'label' => 'Order', 'value' => hub_num($s['orders_count'] ?? 0)],
     ];
+    $pageActions = hub_export_page_actions('revenue', $q);
 @endphp
 
 @include('hub.partials.ceo.shell-open')

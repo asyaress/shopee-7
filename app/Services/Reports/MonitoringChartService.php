@@ -24,15 +24,19 @@ class MonitoringChartService
         $monthly = $report['monthly'] ?? [];
         $fb = $report['fee_breakdown'] ?? [];
         $labels = array_column($monthly, 'label');
+        $feeHeatmap = $this->feeHeatmap($monthly, $fb);
+        $feeStacked = $this->feeStackedMonthly($monthly, $fb);
 
         return [
             'fee_doughnut' => $this->feeDoughnut($fb),
+            'fee_heatmap' => $feeHeatmap,
+            'fee_stacked' => $feeStacked,
             'fee_monthly' => [
                 'labels' => $labels,
                 'datasets' => [
                     [
                         'label' => 'Biaya platform (Rp)',
-                        'data' => array_map(fn ($m) => (int) round(($m['gross'] ?? 0) - ($m['net'] ?? 0)), $monthly),
+                        'data' => array_map(fn ($m) => (int) round(($m['fee_total'] ?? 0) ?: (($m['gross'] ?? 0) - ($m['net'] ?? 0))), $monthly),
                     ],
                 ],
             ],
@@ -240,5 +244,71 @@ class MonitoringChartService
         }
 
         return $out;
+    }
+
+    /** @param list<array<string, mixed>> $monthly @param array<string, int> $periodFb */
+    private function feeHeatmap(array $monthly, array $periodFb): array
+    {
+        $map = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels();
+        $activeKeys = [];
+        foreach (array_keys($map) as $key) {
+            $periodVal = (int) ($periodFb[$key] ?? 0);
+            $monthSum = 0;
+            foreach ($monthly as $m) {
+                $monthSum += (int) (($m['fee'] ?? [])[$key] ?? 0);
+            }
+            if ($periodVal > 0 || $monthSum > 0) {
+                $activeKeys[] = $key;
+            }
+        }
+
+        if ($activeKeys === [] || $monthly === []) {
+            return ['series' => [], 'max' => 0];
+        }
+
+        $max = 0;
+        $series = [];
+        foreach ($monthly as $m) {
+            $points = [];
+            foreach ($activeKeys as $key) {
+                $val = (int) (($m['fee'] ?? [])[$key] ?? 0);
+                $max = max($max, $val);
+                $points[] = ['x' => $map[$key], 'y' => $val];
+            }
+            $series[] = ['name' => $m['label'] ?? '', 'data' => $points];
+        }
+
+        return [
+            'series' => $series,
+            'max' => $max,
+            'components' => array_map(fn ($k) => $map[$k], $activeKeys),
+        ];
+    }
+
+    /** @param list<array<string, mixed>> $monthly @param array<string, int> $periodFb */
+    private function feeStackedMonthly(array $monthly, array $periodFb): array
+    {
+        $map = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels();
+        $labels = array_column($monthly, 'label');
+        $activeKeys = [];
+        foreach (array_keys($map) as $key) {
+            if ((int) ($periodFb[$key] ?? 0) > 0) {
+                $activeKeys[] = $key;
+            }
+        }
+
+        $datasets = [];
+        foreach ($activeKeys as $key) {
+            $datasets[] = [
+                'label' => $map[$key],
+                'data' => array_map(fn ($m) => (int) (($m['fee'] ?? [])[$key] ?? 0), $monthly),
+            ];
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => $datasets,
+            'stacked' => true,
+        ];
     }
 }

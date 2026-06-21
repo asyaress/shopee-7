@@ -8,10 +8,12 @@
     $hpp = $ac['hpp_quality'] ?? [];
     $cash = $ac['cash_guard'] ?? [];
     $shop = $shop ?? [];
+    $q = request()->query();
     $pageMeta = [
         ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? $activeShopeeShopLabel ?? 'Toko'],
         ['icon' => 'fas fa-box', 'label' => 'HPP terisi', 'value' => $hpp['complete_pct_label'] ?? '—'],
     ];
+    $pageActions = hub_export_page_actions('actions', $q);
 @endphp
 
 @include('hub.partials.ceo.shell-open')

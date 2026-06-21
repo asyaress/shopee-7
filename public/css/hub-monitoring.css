@@ -758,6 +758,8 @@
 .roas-action-success { border-left-color: #16a34a; }
 .roas-action-warning { border-left-color: #d97706; }
 .roas-action-danger { border-left-color: #dc2626; }
+.roas-action-muted { border-left-color: #e2e8f0; opacity: 0.92; }
+.roas-products-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 0.15rem; }
 .roas-product-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .roas-product-name { font-weight: 600; font-size: 0.9375rem; color: #6b1528; text-decoration: none; }
 .roas-product-name:hover { text-decoration: underline; }
@@ -765,6 +767,7 @@
 .roas-action-success .roas-product-action { background: #dcfce7; color: #166534; }
 .roas-action-warning .roas-product-action { background: #fef3c7; color: #92400e; }
 .roas-action-danger .roas-product-action { background: #fee2e2; color: #991b1b; }
+.roas-action-muted .roas-product-action { background: #f8fafc; color: #94a3b8; }
 .roas-product-meta { font-size: 0.75rem; color: #64748b; margin: 0.35rem 0 0.5rem; }
 .roas-product-stats {
     display: grid;

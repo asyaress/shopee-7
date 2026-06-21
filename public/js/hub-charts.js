@@ -23,12 +23,24 @@
         return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
     }
 
-    function fmtCompact(n) {
+    /** Axis / label ringkas tetap prefix Rp */
+    function fmtRpAxis(n) {
         const v = Number(n) || 0;
-        if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + ' M';
-        if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + ' jt';
-        if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + ' rb';
-        return String(Math.round(v));
+        const abs = Math.abs(v);
+        if (abs >= 1e9) {
+            return 'Rp ' + (v / 1e9).toFixed(1).replace('.', ',') + ' M';
+        }
+        if (abs >= 1e6) {
+            return 'Rp ' + (v / 1e6).toFixed(1).replace('.', ',') + ' jt';
+        }
+        if (abs >= 1e4) {
+            return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(v));
+        }
+        return fmtRp(v);
+    }
+
+    function fmtCompact(n) {
+        return fmtRpAxis(n);
     }
 
     function fmtPct(n) {
@@ -107,7 +119,7 @@
 
     function yAxisRp() {
         return {
-            labels: { formatter: (v) => fmtCompact(v) },
+            labels: { formatter: (v) => fmtRpAxis(v) },
             min: 0,
             forceNiceScale: true,
         };
@@ -500,7 +512,7 @@
                 formatter: (v) => {
                     if (isPct) return fmtPct(v);
                     if (isCount) return new Intl.NumberFormat('id-ID').format(v);
-                    return fmtCompact(v);
+                    return fmtRp(v);
                 },
             },
             xaxis: horizontal
@@ -544,11 +556,74 @@
             stroke: { width: [0, 3], curve: 'smooth' },
             plotOptions: { bar: { columnWidth: columnWidth(labels.length), borderRadius: 6 } },
             colors: [C.maroon, C.teal],
-            dataLabels: { enabled: labels.length <= 6, enabledOnSeries: [0] },
+            dataLabels: { enabled: labels.length <= 8, enabledOnSeries: [0],
+                formatter: (v) => fmtRp(v),
+                style: { fontSize: '10px', colors: [C.maroonDark] },
+                offsetY: -16,
+            },
             xaxis: { categories: labels },
             yaxis: yAxisRp(),
             tooltip: apexTooltipY(false, false),
             legend: { position: 'bottom' },
+        };
+
+        const chart = new ApexCharts(el, opts);
+        chart.render();
+        _instances[id] = chart;
+        panelReady(el);
+        return chart;
+    }
+
+    function renderHeatmap(id, payload) {
+        const el = hostEl(id);
+        if (!el) return null;
+        destroy(id);
+
+        const series = payload.series || [];
+        if (!series.length || !series.some((s) => (s.data || []).some((d) => (d.y || 0) > 0))) {
+            showEmpty(el, 'Belum ada komponen fee per bulan.');
+            return null;
+        }
+
+        const maxVal = Math.max(1, Number(payload.max) || 0);
+        const mid = Math.round(maxVal * 0.35);
+        const high = Math.round(maxVal * 0.7);
+
+        const opts = {
+            series,
+            chart: { ...baseChartOpts(380), type: 'heatmap' },
+            plotOptions: {
+                heatmap: {
+                    shadeIntensity: 0.45,
+                    radius: 4,
+                    useFillColorAsStroke: false,
+                    colorScale: {
+                        ranges: [
+                            { from: 0, to: 0, name: 'Nol', color: '#f1f5f9' },
+                            { from: 1, to: mid, name: 'Rendah', color: '#f8e8ed' },
+                            { from: mid + 1, to: high, name: 'Sedang', color: '#d14a6f' },
+                            { from: high + 1, to: maxVal * 10, name: 'Tinggi', color: '#6b1528' },
+                        ],
+                    },
+                },
+            },
+            dataLabels: {
+                enabled: true,
+                style: { fontSize: '9px', colors: ['#1e293b'] },
+                formatter(val, opts) {
+                    const y = opts?.w?.config?.series?.[opts.seriesIndex]?.data?.[opts.dataPointIndex]?.y;
+                    const n = Number(y ?? val ?? 0);
+                    return n > 0 ? fmtRpAxis(n) : '';
+                },
+            },
+            stroke: { width: 1, colors: ['#fff'] },
+            xaxis: { labels: { rotate: -35, style: { fontSize: '9px' } } },
+            yaxis: { labels: { style: { fontSize: '10px' } } },
+            legend: { show: false },
+            tooltip: {
+                theme: 'dark',
+                y: { formatter: (v) => fmtRp(v) },
+            },
         };
 
         const chart = new ApexCharts(el, opts);
@@ -589,6 +664,7 @@
             polarArea: () => renderPolar(id, payload),
             polar: () => renderPolar(id, payload),
             mixed: () => renderMixed(id, payload),
+            heatmap: () => renderHeatmap(id, payload),
             single_metric: () => renderSingleMetric(id, payload),
         };
 
@@ -636,6 +712,8 @@
         shopee_gross: { type: 'area' },
         shopee_fee_month: { type: 'column' },
         shopee_fee_pie: { type: 'donut' },
+        shopee_fee_heatmap: { type: 'heatmap' },
+        shopee_fee_stacked: { type: 'bar' },
         shopee_take_rate: { type: 'line' },
         ads_daily: { type: 'area' },
         ads_monthly: { type: 'column' },

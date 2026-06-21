@@ -19,6 +19,7 @@
         ['icon' => 'fas fa-store', 'label' => 'Toko', 'value' => $shop['label'] ?? '—'],
         ['type' => 'score', 'label' => 'Skor kesehatan', 'value' => $health],
     ];
+    $pageActions = hub_export_page_actions('overview', $q);
 @endphp
 
 @include('hub.partials.ceo.shell-open')

@@ -22,9 +22,10 @@
     $pageMeta = [
         ['icon' => 'fas fa-box', 'label' => 'SKU', 'value' => $s['name'] ?? $product->name],
     ];
-    $pageActions = [
-        ['label' => 'Ganti produk', 'url' => route('monitoring.product-analysis.index', $q), 'icon' => 'fa-arrow-left', 'variant' => 'outline'],
-    ];
+    $pageActions = array_merge(
+        hub_export_page_actions('product-analysis', array_merge($q, ['product' => $product->id])),
+        [['label' => 'Ganti produk', 'url' => route('monitoring.product-analysis.index', $q), 'icon' => 'fa-arrow-left', 'variant' => 'outline']],
+    );
 @endphp
 
 @include('hub.partials.ceo.shell-open')
@@ -207,9 +208,65 @@
 
     {{-- Tren bulanan --}}
     @if(!empty($monthly))
+    @php
+        $mcSelected = $month_compare['selected'] ?? [];
+        $monthCount = count($mcSelected);
+        $trendSubtitle = $monthCount > 1
+            ? 'Omzet & iklan — ' . $monthCount . ' bulan dibandingkan'
+            : 'Omzet & iklan — 1 bulan';
+    @endphp
+    @include('hub.partials.product-analysis-month-picker')
+
     <div class="fc-chart-stack pa-section">
-        @include('hub.partials.chart-panel', ['id' => 'paTrend', 'title' => 'Tren penjualan produk', 'subtitle' => 'Area — omzet & iklan 6 bulan', 'size' => 'hero'])
-        @include('hub.partials.chart-panel', ['id' => 'paRoasLine', 'title' => 'ROAS bisnis produk', 'subtitle' => 'Line — 1 bulan tampil sebagai gauge', 'size' => 'compact'])
+        @include('hub.partials.chart-panel', ['id' => 'paTrend', 'title' => 'Tren penjualan produk', 'subtitle' => $trendSubtitle, 'size' => 'hero'])
+        @include('hub.partials.chart-panel', ['id' => 'paRoasLine', 'title' => 'ROAS bisnis produk', 'subtitle' => 'ROAS kotor ÷ spend iklan per bulan', 'size' => 'compact'])
+    </div>
+
+    <div class="hub-card pa-section">
+        <div class="hub-card-header">
+            <h2 class="report-section-title">Perbandingan per bulan</h2>
+            <p class="report-section-desc mb-0">Metrik utama produk untuk setiap bulan yang dipilih.</p>
+        </div>
+        <div class="hub-card-body p-0">
+            <div class="table-responsive">
+                <table class="report-table report-table-compact">
+                    <thead>
+                        <tr>
+                            <th>Metrik</th>
+                            @foreach($monthly as $m)
+                            <th class="num">{{ $m['label'] }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Penjualan kotor</td>
+                            @foreach($monthly as $m)
+                            <td class="num">{{ hub_rp($m['gross'], true) }}</td>
+                            @endforeach
+                        </tr>
+                        <tr>
+                            <td>Qty terjual</td>
+                            @foreach($monthly as $m)
+                            <td class="num">{{ number_format($m['qty']) }} pcs</td>
+                            @endforeach
+                        </tr>
+                        <tr>
+                            <td>Spend iklan</td>
+                            @foreach($monthly as $m)
+                            <td class="num">{{ hub_rp($m['ads'], true) }}</td>
+                            @endforeach
+                        </tr>
+                        <tr>
+                            <td>ROAS bisnis</td>
+                            @foreach($monthly as $m)
+                            <td class="num">{{ isset($m['roas']) ? number_format($m['roas'], 2) . 'x' : '—' }}</td>
+                            @endforeach
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     @endif
 
@@ -252,6 +309,7 @@
 
 @if(!empty($monthly))
 @push('scripts')
+<script src="{{ asset('js/rekap-picker.js') }}?v=2"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const monthly = @json($monthly);

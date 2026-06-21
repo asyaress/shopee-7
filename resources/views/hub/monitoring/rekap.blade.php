@@ -26,6 +26,8 @@
                 : ($selectedCol['label'] ?? $selectedMonth ?? '—'),
         ]);
     }
+    $q = request()->query();
+    $pageActions = $hasData ? hub_export_page_actions('rekap', $q) : [];
 
     $rekChartLabels = [];
     $rekGross = [];
@@ -245,7 +247,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/rekap-picker.js') }}?v=1"></script>
+<script src="{{ asset('js/rekap-picker.js') }}?v=2"></script>
 @if($hasData && count($rekChartLabels ?? []) > 0 && ($mode === 'compare' || count($months) > 1))
 <script>
 document.addEventListener('DOMContentLoaded', function () {

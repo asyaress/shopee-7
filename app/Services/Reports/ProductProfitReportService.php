@@ -37,20 +37,7 @@ class ProductProfitReportService
         $this->preloadProductMaps($productByExternalItemId, $productByExternalSku, $productByNormName);
 
         $productAgg = [];
-        $feeBreakdown = [
-            'admin' => 0.0,
-            'program_hemat' => 0.0,
-            'layanan' => 0.0,
-            'proses' => 0.0,
-            'ams' => 0.0,
-            'campaign' => 0.0,
-            'premi' => 0.0,
-            'seller_transaction' => 0.0,
-            'buyer_transaction' => 0.0,
-            'seller_discount' => 0.0,
-            'voucher_seller' => 0.0,
-            'refund' => 0.0,
-        ];
+        $feeBreakdown = ShopeeFinancialExtractor::emptyBreakdown();
 
         $totals = [
             'gross' => 0.0,
@@ -159,18 +146,7 @@ class ProductProfitReportService
             }
 
             if ($isShopee) {
-                $feeBreakdown['admin'] += (float) ($fin['fee_admin'] ?? 0);
-                $feeBreakdown['program_hemat'] += (float) ($fin['fee_program_hemat'] ?? 0);
-                $feeBreakdown['layanan'] += (float) ($fin['fee_service'] ?? 0);
-                $feeBreakdown['proses'] += (float) ($fin['fee_process'] ?? 0);
-                $feeBreakdown['ams'] += (float) ($fin['fee_ams'] ?? 0);
-                $feeBreakdown['campaign'] += (float) ($fin['fee_campaign'] ?? 0);
-                $feeBreakdown['premi'] += (float) ($fin['fee_premi'] ?? 0);
-                $feeBreakdown['seller_transaction'] += (float) ($fin['fee_seller_transaction'] ?? 0);
-                $feeBreakdown['buyer_transaction'] += (float) ($fin['fee_buyer_transaction'] ?? 0);
-                $feeBreakdown['seller_discount'] += (float) ($fin['seller_discount'] ?? 0);
-                $feeBreakdown['voucher_seller'] += (float) ($fin['voucher_seller'] ?? 0);
-                $feeBreakdown['refund'] += (float) ($fin['refund'] ?? 0);
+                $this->accumulateFeeBreakdown($feeBreakdown, $fin);
             }
 
             $monthKey = $order->order_date ? $order->order_date->format('Y-m') : 'unknown';
@@ -183,6 +159,8 @@ class ProductProfitReportService
                     'gross_profit' => 0.0,
                     'orders' => 0,
                     'units' => 0,
+                    'fee_total' => 0.0,
+                    'fee' => ShopeeFinancialExtractor::emptyBreakdown(),
                 ];
             }
             $monthly[$monthKey]['gross'] += $gross;
@@ -191,6 +169,10 @@ class ProductProfitReportService
             $monthly[$monthKey]['gross_profit'] += $grossProfit;
             $monthly[$monthKey]['orders']++;
             $monthly[$monthKey]['units'] += $orderUnits;
+            if ($isShopee) {
+                $monthly[$monthKey]['fee_total'] += $feeTotal;
+                $this->accumulateFeeBreakdown($monthly[$monthKey]['fee'], $fin);
+            }
 
             $orderRows[] = [
                 'date' => $order->order_date?->format('d M Y') ?? '-',
@@ -274,6 +256,12 @@ class ProductProfitReportService
             $m['basket_size'] = $mOrders > 0 ? ($m['units'] ?? 0) / $mOrders : null;
             $m['gross_margin_pct'] = $mGross > 0 ? ($m['gross_profit'] ?? 0) / $mGross : null;
             $m['net_margin_pct'] = $mGross > 0 ? ($m['net_profit'] ?? 0) / $mGross : null;
+            $m['fee_total'] = (int) round($m['fee_total'] ?? 0);
+            if (isset($m['fee']) && is_array($m['fee'])) {
+                $m['fee'] = array_map(fn ($v) => (int) round($v), $m['fee']);
+            }
+            $mFeeSum = is_array($m['fee'] ?? null) ? array_sum($m['fee']) : 0;
+            $m['take_rate'] = $mGross > 0 ? ($m['fee_total'] ?: $mFeeSum) / $mGross : 0;
         }
         unset($m);
 
@@ -340,6 +328,7 @@ class ProductProfitReportService
                 fn ($v) => $v / $feeTotalBreakdown,
                 $feeBreakdownRounded
             ),
+            'fee_detail' => $this->buildFeeDetail($feeBreakdownRounded, $feeTotalBreakdown, $summary),
             'monthly' => array_values($monthly),
             'products' => $productsList,
             'product_totals' => $productTotals,
@@ -765,5 +754,45 @@ class ProductProfitReportService
         $name = preg_replace('/\s+/', ' ', $name) ?? $name;
 
         return $name;
+    }
+
+    /** @param array<string, float> $bucket @param array<string, mixed> $fin */
+    private function accumulateFeeBreakdown(array &$bucket, array $fin): void
+    {
+        foreach (ShopeeFinancialExtractor::mapFinToBreakdown($fin) as $key => $amount) {
+            $bucket[$key] = ($bucket[$key] ?? 0) + $amount;
+        }
+    }
+
+    /**
+     * @param array<string, int> $feeBreakdown
+     * @param array<string, mixed> $summary
+     * @return list<array<string, mixed>>
+     */
+    private function buildFeeDetail(array $feeBreakdown, int $feeTotal, array $summary): array
+    {
+        $labels = ShopeeFinancialExtractor::feeLabels();
+        $desc = ShopeeFinancialExtractor::feeDescriptions();
+        $gross = max(1, (int) ($summary['gross'] ?? 0));
+        $orders = max(1, (int) ($summary['orders_count'] ?? 0));
+        $rows = [];
+
+        foreach ($labels as $key => $label) {
+            $amount = (int) ($feeBreakdown[$key] ?? 0);
+            $rows[] = [
+                'key' => $key,
+                'label' => $label,
+                'description' => $desc[$key] ?? '',
+                'amount' => $amount,
+                'pct_of_fee' => $feeTotal > 0 ? $amount / $feeTotal : 0,
+                'pct_of_gross' => $amount / $gross,
+                'avg_per_order' => (int) round($amount / $orders),
+                'has_value' => $amount !== 0,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => ($b['amount'] ?? 0) <=> ($a['amount'] ?? 0));
+
+        return $rows;
     }
 }

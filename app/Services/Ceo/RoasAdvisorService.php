@@ -99,6 +99,9 @@ class RoasAdvisorService
                 'scale' => count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'scale')),
                 'cut' => count(array_filter($products, fn ($p) => in_array($p['action']['code'] ?? '', ['cut', 'stop'], true))),
                 'ok' => count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'ok')),
+                'no_ads' => count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'no_ads')),
+                'total' => count($products),
+                'with_ads' => count(array_filter($products, fn ($p) => ($p['spend'] ?? 0) > 0)),
             ],
             // legacy keys for any old references
             'metrics' => [
@@ -241,12 +244,31 @@ class RoasAdvisorService
             $gross = (float) ($p['gross'] ?? 0);
             $gp = (float) ($p['gross_profit'] ?? 0);
             $spend = (float) ($p['ads_spend'] ?? 0);
+            $pid = (int) ($p['product_id'] ?? 0);
+            $ext = $p['external_item_id'] ?? '';
+
             if ($spend <= 0) {
+                $out[] = [
+                    'product_id' => $pid,
+                    'name' => $p['name'] ?? '—',
+                    'spend' => 0,
+                    'gmv_ams' => 0,
+                    'shopee_roas' => null,
+                    'business_roas' => null,
+                    'set_roas_shopee' => null,
+                    'target_roas' => null,
+                    'net_profit' => (int) round($p['net_profit'] ?? 0),
+                    'tier' => $p['tier'] ?? null,
+                    'action' => [
+                        'code' => 'no_ads',
+                        'label' => 'Tanpa iklan',
+                        'hint' => 'Belum ada spend iklan di periode ini.',
+                        'severity' => 'muted',
+                    ],
+                ];
                 continue;
             }
 
-            $pid = (int) ($p['product_id'] ?? 0);
-            $ext = $p['external_item_id'] ?? '';
             $ads = $adsByProduct[$pid] ?? $adsByProduct['ext:' . $ext] ?? null;
 
             $gmv = (float) ($ads['gmv'] ?? 0);
@@ -287,9 +309,23 @@ class RoasAdvisorService
             ];
         }
 
-        usort($out, fn ($a, $b) => ($b['spend'] ?? 0) <=> ($a['spend'] ?? 0));
+        usort($out, function ($a, $b) {
+            $sa = (int) ($a['spend'] ?? 0);
+            $sb = (int) ($b['spend'] ?? 0);
+            if ($sa > 0 && $sb <= 0) {
+                return -1;
+            }
+            if ($sa <= 0 && $sb > 0) {
+                return 1;
+            }
+            if ($sa !== $sb) {
+                return $sb <=> $sa;
+            }
 
-        return array_slice($out, 0, 30);
+            return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+        });
+
+        return $out;
     }
 
     private function productAction(

@@ -14,6 +14,7 @@ use App\Services\Ceo\SettlementEstimateService;
 use App\Support\ShopeeShopContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -85,9 +86,28 @@ class CeoController extends Controller
         $request->attributes->set('include_all_products', true);
         $report = app(\App\Services\Reports\ProductProfitReportService::class)->build($request);
         $charts = app(\App\Services\Reports\MonitoringChartService::class)->chartsForAds($report, $request);
+        $roas = $this->roasAdvisor->shopAdvice($report);
+
+        $perPage = max(10, min(50, (int) $request->query('per_page', 20)));
+        $page = max(1, (int) $request->query('page', 1));
+        $allProducts = $roas['products'] ?? [];
+        $total = count($allProducts);
+        $items = array_slice($allProducts, ($page - 1) * $perPage, $perPage);
+
+        $productsPaginator = new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->except('page'),
+            ]
+        );
 
         return view('hub.ceo.roas', [
-            'roas' => $this->roasAdvisor->shopAdvice($report),
+            'roas' => $roas,
+            'productsPaginator' => $productsPaginator,
             'report' => $report,
             'charts' => $charts,
             'activeSection' => 'roas',

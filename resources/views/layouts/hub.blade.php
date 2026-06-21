@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link href="{{ asset('css/hub.css') }}?v=5" rel="stylesheet">
-    <link href="{{ asset('css/hub-report.css') }}?v=4" rel="stylesheet">
+    <link href="{{ asset('css/hub-report.css') }}?v=5" rel="stylesheet">
     <link href="{{ asset('css/hub-pages.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-datatables.css') }}?v=3" rel="stylesheet">
     <link href="{{ asset('css/hub-monitoring.css') }}?v=11" rel="stylesheet">
@@ -180,7 +180,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{{ asset('js/hub-charts.js') }}?v=3"></script>
+    <script src="{{ asset('js/hub-charts.js') }}?v=5"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/hub-mobile.js') }}?v=2"></script>
     <script>

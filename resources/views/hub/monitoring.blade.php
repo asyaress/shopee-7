@@ -17,9 +17,9 @@
         ['icon' => 'far fa-calendar-alt', 'label' => 'Periode', 'value' => $meta['period_label'] ?? '—'],
         ['type' => 'score', 'label' => 'Skor data', 'value' => $health, 'hint' => $health >= 70 ? 'Data layak' : 'Perlu lengkapi HPP'],
     ];
-    $pageActions = [
-        ['label' => 'Export Excel', 'url' => route('monitoring.profit', array_merge($q, ['export' => 'xlsx'])), 'icon' => 'fa-file-excel', 'variant' => 'outline'],
-    ];
+    $pageActions = array_merge(
+        hub_export_page_actions('profit', $q),
+    );
 @endphp
 
 @include('hub.partials.ceo.shell-open')

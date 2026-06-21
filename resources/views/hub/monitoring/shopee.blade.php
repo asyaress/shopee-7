@@ -8,11 +8,14 @@
     $meta = $meta ?? [];
     $fb = $fee_breakdown ?? [];
     $fbPct = $fee_breakdown_pct ?? [];
+    $feeDetail = $fee_detail ?? [];
     $charts = $charts ?? [];
+    $q = request()->query();
     $pageMeta = [
         ['icon' => 'fas fa-percent', 'label' => 'Fee total', 'value' => hub_rp($s['fee_total'] ?? 0)],
         ['icon' => 'fas fa-chart-pie', 'label' => 'Take rate', 'value' => hub_pct($s['take_rate'] ?? null)],
     ];
+    $pageActions = hub_export_page_actions('revenue', $q);
 @endphp
 
 @include('hub.partials.ceo.shell-open')
@@ -29,28 +32,26 @@
 
     <div class="fc-chart-stack">
         @include('hub.partials.chart-panel', ['id' => 'chGrossNet', 'title' => 'Kotor vs net', 'subtitle' => 'Tren penghasilan sebelum & sesudah fee Shopee', 'size' => 'hero'])
-        @include('hub.partials.chart-panel', ['id' => 'chFeeMonthly', 'title' => 'Biaya platform per bulan', 'subtitle' => 'Selisih pendapatan kotor − net', 'size' => 'default'])
-        @include('hub.partials.chart-panel', ['id' => 'chFeePie', 'title' => 'Komposisi fee platform', 'subtitle' => 'Breakdown administrasi, layanan, proses', 'size' => 'square'])
-        @include('hub.partials.chart-panel', ['id' => 'chTakeRate', 'title' => 'Take rate (%)', 'subtitle' => 'Persentase fee dari penjualan kotor', 'size' => 'compact'])
+        <div class="fc-chart-duo">
+            @include('hub.partials.chart-panel', ['id' => 'chFeeHeatmap', 'title' => 'Heatmap komposisi fee', 'subtitle' => 'Intensitas biaya per komponen × bulan — warna lebih gelap = nominal lebih besar', 'size' => 'default'])
+            @include('hub.partials.chart-panel', ['id' => 'chFeePie', 'title' => 'Komposisi fee platform', 'subtitle' => 'Proporsi administrasi, layanan, proses, AMS, dll.', 'size' => 'default'])
+        </div>
+        <div class="fc-chart-duo">
+            @include('hub.partials.chart-panel', ['id' => 'chFeeStacked', 'title' => 'Stack fee per bulan', 'subtitle' => 'Kontribusi tiap komponen biaya per bulan', 'size' => 'default'])
+            @include('hub.partials.chart-panel', ['id' => 'chFeeMonthly', 'title' => 'Total biaya platform per bulan', 'subtitle' => 'Agregat semua komponen fee Shopee', 'size' => 'default'])
+        </div>
+        @include('hub.partials.chart-panel', ['id' => 'chTakeRate', 'title' => 'Take rate (%)', 'subtitle' => 'Persentase fee dari penjualan kotor per bulan', 'size' => 'compact'])
     </div>
 
     <div class="hub-card mt-3">
-        <div class="hub-card-header"><h2 class="report-section-title">Detail komponen fee</h2></div>
-        <div class="hub-card-body">
-            @php $feeLabels = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels(); @endphp
-            @foreach($feeLabels as $key => $label)
-            @if(($fb[$key] ?? 0) != 0)
-            <div class="fee-bar-row">
-                <div class="fee-label">
-                    <span>{{ $label }}</span>
-                    <strong>{{ hub_rp($fb[$key] ?? 0) }} · {{ hub_pct($fbPct[$key] ?? 0) }}</strong>
-                </div>
-                <div class="fee-bar-track">
-                    <div class="fee-bar-fill" style="width: {{ min(100, ($fbPct[$key] ?? 0) * 100) }}%"></div>
-                </div>
+        <div class="hub-card-header">
+            <div>
+                <h2 class="report-section-title">Detail komponen biaya platform</h2>
+                <p class="report-section-desc mb-0">Rincian lengkap dari data escrow Shopee — nominal, proporsi, dan rata-rata per order.</p>
             </div>
-            @endif
-            @endforeach
+        </div>
+        <div class="hub-card-body">
+            @include('hub.partials.fee-composition-detail')
         </div>
     </div>
 @include('hub.partials.ceo.shell-close')
@@ -60,13 +61,15 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const c = @json($charts);
+    HubCharts.renderPreset('chGrossNet', 'shopee_gross', c.gross_vs_net || {});
+    HubCharts.renderPreset('chFeeHeatmap', 'shopee_fee_heatmap', c.fee_heatmap || {});
     HubCharts.renderPreset('chFeePie', 'shopee_fee_pie', c.fee_doughnut || {});
+    HubCharts.renderPreset('chFeeStacked', 'shopee_fee_stacked', Object.assign({ stacked: true }, c.fee_stacked || {}));
     HubCharts.renderPreset('chFeeMonthly', 'shopee_fee_month', c.fee_monthly || {});
     HubCharts.renderPreset('chTakeRate', 'shopee_take_rate', {
         labels: (c.take_rate || {}).labels,
         datasets: [{ label: 'Take rate %', data: (c.take_rate || {}).data }],
     });
-    HubCharts.renderPreset('chGrossNet', 'shopee_gross', c.gross_vs_net || {});
 });
 </script>
 @endpush

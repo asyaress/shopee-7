@@ -119,7 +119,7 @@ class ShopeeFinancialExtractor
         ];
     }
 
-    /** @return array<string, string> label => fee key */
+    /** @return array<string, string> key => label */
     public static function feeLabels(): array
     {
         return [
@@ -136,5 +136,49 @@ class ShopeeFinancialExtractor
             'voucher_seller' => 'Voucher penjual',
             'refund' => 'Pengembalian dana',
         ];
+    }
+
+    /** @return array<string, string> key => penjelasan singkat */
+    public static function feeDescriptions(): array
+    {
+        return [
+            'admin' => 'Komisi penjual Shopee (commission fee) dari escrow order.',
+            'layanan' => 'Biaya layanan platform Shopee (service fee).',
+            'proses' => 'Biaya pemrosesan transaksi per pesanan (seller order processing fee).',
+            'program_hemat' => 'Kontribusi seller untuk program hemat ongkir / proteksi pengiriman.',
+            'ams' => 'Komisi iklan Shopee AMS yang dibebankan ke order.',
+            'campaign' => 'Biaya partisipasi kampanye/promo Shopee.',
+            'premi' => 'Premi proteksi pengiriman seller (delivery protection).',
+            'seller_transaction' => 'Biaya transaksi yang dibebankan ke penjual.',
+            'buyer_transaction' => 'Biaya transaksi pembeli (informatif, dari escrow).',
+            'seller_discount' => 'Diskon harga yang ditanggung penjual.',
+            'voucher_seller' => 'Voucher tok o yang ditanggung penjual.',
+            'refund' => 'Pengembalian dana / adjustment refund ke pembeli.',
+        ];
+    }
+
+    /** @return array<string, float> */
+    public static function mapFinToBreakdown(array $fin): array
+    {
+        return [
+            'admin' => (float) ($fin['fee_admin'] ?? 0),
+            'program_hemat' => (float) ($fin['fee_program_hemat'] ?? 0),
+            'layanan' => (float) ($fin['fee_service'] ?? 0),
+            'proses' => (float) ($fin['fee_process'] ?? 0),
+            'ams' => (float) ($fin['fee_ams'] ?? 0),
+            'campaign' => (float) ($fin['fee_campaign'] ?? 0),
+            'premi' => (float) ($fin['fee_premi'] ?? 0),
+            'seller_transaction' => (float) ($fin['fee_seller_transaction'] ?? 0),
+            'buyer_transaction' => (float) ($fin['fee_buyer_transaction'] ?? 0),
+            'seller_discount' => (float) ($fin['seller_discount'] ?? 0),
+            'voucher_seller' => (float) ($fin['voucher_seller'] ?? 0),
+            'refund' => (float) ($fin['refund'] ?? 0),
+        ];
+    }
+
+    /** @return array<string, float> */
+    public static function emptyBreakdown(): array
+    {
+        return array_fill_keys(array_keys(self::feeLabels()), 0.0);
     }
 }

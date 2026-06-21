@@ -11,6 +11,7 @@ use App\Services\Recommendations\RecommendationEngine;
 use App\Support\ShopeeLinkHelper;
 use App\Support\ShopeeShopContext;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,18 +26,139 @@ class ProductAnalysisService
         private readonly ProductActionEngine $actionEngine,
         private readonly BcgFunnelService $bcgFunnel,
         private readonly AdsMetricsService $adsMetrics,
+        private readonly RetailRekapService $retailRekap,
     ) {
     }
 
-    public function productPicker(int $shopId, ?string $search = null, int $limit = 80): array
+    /** @return array{products: \Illuminate\Contracts\Pagination\LengthAwarePaginator, filters: array<string, mixed>, status_counts: array<string, int>} */
+    public function productPickerIndex(int $shopId, Request $request): array
+    {
+        $search = trim((string) $request->query('q', ''));
+        $status = $this->normalizeProductStatus((string) $request->query('product_status', 'all'));
+        $perPage = max(10, min(50, (int) $request->query('per_page', 20)));
+
+        $q = $this->baseProductPickerQuery($shopId);
+        $this->applyProductStatusToQuery($q, $status);
+
+        if ($search !== '') {
+            $term = '%' . $search . '%';
+            $q->where(function (Builder $builder) use ($term) {
+                $builder->where('name', 'like', $term)
+                    ->orWhere('external_sku', 'like', $term)
+                    ->orWhere('external_item_id', 'like', $term);
+            });
+        }
+
+        $paginator = $q->orderBy('name')->paginate($perPage)->withQueryString();
+        $paginator->getCollection()->transform(fn (Product $p) => $this->mapPickerRow($p));
+
+        return [
+            'products' => $paginator,
+            'filters' => [
+                'q' => $search !== '' ? $search : null,
+                'product_status' => $status,
+                'per_page' => $perPage,
+            ],
+            'status_counts' => $this->productStatusCounts($shopId),
+        ];
+    }
+
+    /** @return array<string, int> */
+    public function productStatusCounts(int $shopId): array
+    {
+        return [
+            'active' => $this->countProductsByStatus($shopId, 'active'),
+            'archive' => $this->countProductsByStatus($shopId, 'archive'),
+            'inactive' => $this->countProductsByStatus($shopId, 'inactive'),
+            'all' => $this->countProductsByStatus($shopId, 'all'),
+        ];
+    }
+
+    public function normalizeProductStatus(string $status): string
+    {
+        return in_array($status, ['active', 'archive', 'inactive', 'all'], true) ? $status : 'all';
+    }
+
+    private function countProductsByStatus(int $shopId, string $status): int
+    {
+        $q = $this->baseProductPickerQuery($shopId);
+        $this->applyProductStatusToQuery($q, $status);
+
+        return $q->count();
+    }
+
+    private function baseProductPickerQuery(int $shopId): Builder
     {
         $q = Product::query()
-            ->with(['variants:id,product_id,name,external_model_id,hpp_amount,price'])
-            ->select(['id', 'name', 'external_item_id', 'external_sku', 'base_price', 'hpp_amount', 'image_url']);
+            ->with(['variants:id,product_id,hpp_amount'])
+            ->select([
+                'id', 'name', 'external_item_id', 'external_sku', 'base_price',
+                'hpp_amount', 'image_url', 'is_active', 'external_status',
+            ]);
 
         if ($shopId > 0) {
             ShopeeShopContext::scopeProducts($q);
         }
+
+        return $q;
+    }
+
+    private function applyProductStatusToQuery(Builder $query, string $status): Builder
+    {
+        return match ($this->normalizeProductStatus($status)) {
+            'archive' => $query->whereRaw("UPPER(COALESCE(external_status, '')) = 'UNLIST'"),
+            'inactive' => $query->where('is_active', false)
+                ->whereRaw("UPPER(COALESCE(external_status, '')) != 'UNLIST'"),
+            'all' => $query,
+            default => $query->where('is_active', true),
+        };
+    }
+
+    /** @return array<string, mixed> */
+    private function mapPickerRow(Product $p): array
+    {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'sku' => $p->external_sku,
+            'item_id' => $p->external_item_id,
+            'base_price' => (float) ($p->base_price ?? 0),
+            'hpp_ok' => $p->hpp_amount !== null || $p->variants->contains(fn ($v) => $v->hpp_amount !== null),
+            'variant_count' => $p->variants->count(),
+            'image_url' => $p->image_url,
+            'is_active' => (bool) $p->is_active,
+            'external_status' => $p->external_status,
+            'status' => $this->productStatusKey($p),
+            'status_label' => $this->productStatusLabel($p),
+        ];
+    }
+
+    private function productStatusKey(Product $product): string
+    {
+        if (strtoupper((string) $product->external_status) === 'UNLIST') {
+            return 'archive';
+        }
+
+        if (!$product->is_active) {
+            return 'inactive';
+        }
+
+        return 'active';
+    }
+
+    private function productStatusLabel(Product $product): string
+    {
+        return match ($this->productStatusKey($product)) {
+            'archive' => 'Archive',
+            'inactive' => 'Nonaktif',
+            default => 'Aktif',
+        };
+    }
+
+    /** @deprecated Use productPickerIndex() */
+    public function productPicker(int $shopId, ?string $search = null, int $limit = 80): array
+    {
+        $q = $this->baseProductPickerQuery($shopId);
 
         if ($search !== null && trim($search) !== '') {
             $term = '%' . trim($search) . '%';
@@ -49,16 +171,7 @@ class ProductAnalysisService
 
         $products = $q->orderBy('name')->limit($limit)->get();
 
-        return $products->map(fn (Product $p) => [
-            'id' => $p->id,
-            'name' => $p->name,
-            'sku' => $p->external_sku,
-            'item_id' => $p->external_item_id,
-            'base_price' => (float) ($p->base_price ?? 0),
-            'hpp_ok' => $p->hpp_amount !== null || $p->variants->contains(fn ($v) => $v->hpp_amount !== null),
-            'variant_count' => $p->variants->count(),
-            'image_url' => $p->image_url,
-        ])->all();
+        return $products->map(fn (Product $p) => $this->mapPickerRow($p))->all();
     }
 
     public function build(Request $request, Product $product): array
@@ -93,7 +206,13 @@ class ProductAnalysisService
         $roasDetail = $this->roasForProduct($row, $ads, $report['summary'] ?? []);
         $bcg = $this->bcgForProduct($shopId, $product, $start, $end);
         $variants = $this->variantBreakdown($product, $row, $start, $end);
-        $monthly = $this->monthlyTrend($product, $shopId, 6);
+
+        $availableMonths = $this->retailRekap->availableMonthKeys(24);
+        $compareMonths = $this->retailRekap->filterValidMonths((array) $request->query('compare', []), $availableMonths);
+        if ($compareMonths === []) {
+            $compareMonths = array_slice($availableMonths, -6);
+        }
+        $monthly = $this->monthlyTrendForMonths($product, $shopId, $compareMonths);
         $adsDaily = $this->adsDailyTrend($shopId, $itemId, $start, $end);
 
         return [
@@ -104,6 +223,10 @@ class ProductAnalysisService
             'bcg' => $bcg,
             'variants' => $variants,
             'monthly' => $monthly,
+            'month_compare' => [
+                'selected' => $compareMonths,
+                'available_months' => $this->retailRekap->monthOptions($availableMonths),
+            ],
             'ads_daily' => $adsDaily,
             'simulations' => $this->actionEngine->simulate($row, $row['action']['meta'] ?? []),
             'costing' => $this->costingSummary($product, $row),
@@ -370,31 +493,32 @@ class ProductAnalysisService
         return $out;
     }
 
-    private function monthlyTrend(Product $product, int $shopId, int $months): array
+    /** @param list<string> $monthKeys Y-m */
+    private function monthlyTrendForMonths(Product $product, int $shopId, array $monthKeys): array
     {
         $out = [];
-        $cursor = now()->subMonths($months - 1)->startOfMonth();
+        $itemId = (string) ($product->external_item_id ?? '');
 
-        for ($i = 0; $i < $months; $i++) {
-            $mk = $cursor->format('Y-m');
+        foreach ($monthKeys as $mk) {
+            $cursor = Carbon::createFromFormat('Y-m', $mk)->startOfMonth();
             $mStart = $cursor->copy()->startOfMonth();
             $mEnd = $cursor->copy()->endOfMonth();
+            $endDate = min($mEnd, now())->toDateString();
 
             $agg = DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
                 ->where('order_items.product_id', $product->id)
-                ->whereBetween('orders.order_date', [$mStart->toDateString(), min($mEnd, now())->toDateString()])
+                ->whereBetween('orders.order_date', [$mStart->toDateString(), $endDate])
                 ->whereRaw('LOWER(COALESCE(orders.jenis_transaksi, "")) = ?', ['shopee'])
                 ->selectRaw('SUM(order_items.quantity) as qty, SUM(order_items.total_amount) as gross')
                 ->first();
 
-            $itemId = (string) ($product->external_item_id ?? '');
             $ads = 0.0;
             if ($itemId !== '' && $shopId > 0) {
                 $ads = (float) ShopeeProductAdsDaily::query()
                     ->where('shop_id', $shopId)
                     ->where('external_item_id', $itemId)
-                    ->whereBetween('report_date', [$mStart->toDateString(), min($mEnd, now())->toDateString()])
+                    ->whereBetween('report_date', [$mStart->toDateString(), $endDate])
                     ->sum('spend');
             }
 
@@ -407,11 +531,16 @@ class ProductAnalysisService
                 'ads' => (int) round($ads),
                 'roas' => $ads > 0 ? round($gross / $ads, 2) : null,
             ];
-
-            $cursor->addMonth();
         }
 
         return $out;
+    }
+
+    private function monthlyTrend(Product $product, int $shopId, int $months): array
+    {
+        $keys = array_slice($this->retailRekap->availableMonthKeys($months), -$months);
+
+        return $this->monthlyTrendForMonths($product, $shopId, $keys);
     }
 
     private function adsDailyTrend(int $shopId, int $itemId, Carbon $start, Carbon $end): array

@@ -25,3 +25,31 @@ if (!function_exists('hub_num')) {
         return number_format((float) $value, 0, ',', '.');
     }
 }
+
+if (!function_exists('hub_export_page_actions')) {
+    /**
+     * @param array<string, mixed> $query
+     * @return list<array<string, mixed>>
+     */
+    function hub_export_page_actions(string $type, array $query = []): array
+    {
+        $base = array_merge($query, []);
+
+        return [
+            [
+                'label' => 'Export Excel',
+                'url' => route('monitoring.export', array_merge($base, ['type' => $type, 'format' => 'xlsx'])),
+                'icon' => 'fa-file-excel',
+                'variant' => 'outline',
+                'download' => true,
+            ],
+            [
+                'label' => 'Export PDF',
+                'url' => route('monitoring.export', array_merge($base, ['type' => $type, 'format' => 'pdf'])),
+                'icon' => 'fa-file-pdf',
+                'variant' => 'outline',
+                'download' => true,
+            ],
+        ];
+    }
+}

@@ -111,7 +111,10 @@ class MonitoringController extends Controller
     public function profit(Request $request)
     {
         if (strtolower((string) $request->query('export')) === 'xlsx') {
-            return $this->export($request);
+            return redirect()->route('monitoring.export', array_merge(
+                $request->query(),
+                ['type' => 'profit', 'format' => 'xlsx']
+            ));
         }
 
         $report = $this->reportService->build($request);
@@ -159,11 +162,13 @@ class MonitoringController extends Controller
     public function productAnalysisIndex(Request $request)
     {
         $shopId = \App\Support\ShopeeShopContext::shopId();
-        $search = $request->query('q');
+        $picker = $this->productAnalysis->productPickerIndex($shopId, $request);
 
         return view('hub.monitoring.product-analysis-index', [
-            'products' => $this->productAnalysis->productPicker($shopId, is_string($search) ? $search : null),
-            'search' => $search,
+            'productsPaginator' => $picker['products'],
+            'filters' => $picker['filters'],
+            'status_counts' => $picker['status_counts'],
+            'search' => $picker['filters']['q'] ?? null,
             'activeSection' => 'product-analysis',
             'navZone' => 'tools',
             'shop' => [
