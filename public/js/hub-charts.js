@@ -82,7 +82,13 @@
         if (payload.labels?.length) return payload.labels.length;
         if (payload.datasets?.[0]?.data?.length) return payload.datasets[0].data.length;
         if (payload.data?.length) return payload.data.length;
-        if (payload.series?.length && Array.isArray(payload.series[0])) return payload.series[0].length;
+        if (payload.series?.length) {
+            const s0 = payload.series[0];
+            if (Array.isArray(s0)) return s0.length;
+            if (s0?.data?.length) return s0.data.length;
+            return payload.series.length;
+        }
+        if (payload.items?.length) return payload.items.length;
         return 0;
     }
 
@@ -649,7 +655,7 @@
         options = options || {};
         const n = countPoints(payload);
 
-        if (n === 0 && !['radialBar', 'treemap', 'sparkline'].includes(type)) {
+        if (n === 0 && !['radialBar', 'treemap', 'sparkline', 'heatmap'].includes(type)) {
             const el = hostEl(id);
             if (el) showEmpty(el, options.emptyMessage);
             return null;
