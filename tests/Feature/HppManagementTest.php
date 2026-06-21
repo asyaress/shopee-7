@@ -137,4 +137,52 @@ class HppManagementTest extends TestCase
         $this->assertSame('27500.00', (string) $product->hpp_amount);
         $this->assertSame('1200.00', (string) $product->packaging_value);
     }
+
+    public function test_hpp_product_status_filter_defaults_to_active_and_supports_all_statuses(): void
+    {
+        Product::query()->create([
+            'name' => 'Produk Aktif',
+            'external_status' => 'NORMAL',
+            'is_active' => true,
+        ]);
+        Product::query()->create([
+            'name' => 'Produk Archive',
+            'external_status' => 'UNLIST',
+            'is_active' => false,
+        ]);
+        Product::query()->create([
+            'name' => 'Produk Nonaktif',
+            'external_status' => 'BANNED',
+            'is_active' => false,
+        ]);
+
+        $this->withSession(['simple_auth' => true])
+            ->get('/hpp')
+            ->assertOk()
+            ->assertSee('Produk Aktif')
+            ->assertDontSee('Produk Archive')
+            ->assertDontSee('Produk Nonaktif')
+            ->assertSee('value="active" selected', false);
+
+        $this->withSession(['simple_auth' => true])
+            ->get('/hpp?product_status=archive')
+            ->assertOk()
+            ->assertSee('Produk Archive')
+            ->assertDontSee('Produk Aktif')
+            ->assertDontSee('Produk Nonaktif');
+
+        $this->withSession(['simple_auth' => true])
+            ->get('/hpp?product_status=inactive')
+            ->assertOk()
+            ->assertSee('Produk Nonaktif')
+            ->assertDontSee('Produk Aktif')
+            ->assertDontSee('Produk Archive');
+
+        $this->withSession(['simple_auth' => true])
+            ->get('/hpp?product_status=all')
+            ->assertOk()
+            ->assertSee('Produk Aktif')
+            ->assertSee('Produk Archive')
+            ->assertSee('Produk Nonaktif');
+    }
 }

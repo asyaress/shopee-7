@@ -22,13 +22,18 @@ class HppController extends Controller
         ShopeeShopContext::scopeProducts($query);
 
         $allProducts = $query->get();
-        $products = $this->applyFilters($allProducts, $request);
+        $productStatus = (string) $request->query('product_status', 'active');
+        if (!in_array($productStatus, ['active', 'archive', 'inactive', 'all'], true)) {
+            $productStatus = 'active';
+        }
+        $statusProducts = $this->applyProductStatusFilter($allProducts, $productStatus);
+        $products = $this->applyFilters($statusProducts, $request);
 
-        $total = $allProducts->count();
-        $complete = $allProducts->filter(fn (Product $product) => $this->isCostComplete($product))->count();
-        $variantTotal = $allProducts->sum(fn (Product $product) => $product->variants->count());
-        $productsWithVariants = $allProducts->filter(fn (Product $product) => $product->variants->isNotEmpty())->count();
-        $variantOverrides = $allProducts->sum(fn (Product $product) => $product->variants
+        $total = $statusProducts->count();
+        $complete = $statusProducts->filter(fn (Product $product) => $this->isCostComplete($product))->count();
+        $variantTotal = $statusProducts->sum(fn (Product $product) => $product->variants->count());
+        $productsWithVariants = $statusProducts->filter(fn (Product $product) => $product->variants->isNotEmpty())->count();
+        $variantOverrides = $statusProducts->sum(fn (Product $product) => $product->variants
             ->filter(fn ($variant) => $variant->hpp_amount !== null || $variant->packaging_type !== null)
             ->count());
 
@@ -43,12 +48,19 @@ class HppController extends Controller
                 'variants' => $variantTotal,
                 'products_with_variants' => $productsWithVariants,
                 'variant_overrides' => $variantOverrides,
+                'product_statuses' => [
+                    'active' => $this->applyProductStatusFilter($allProducts, 'active')->count(),
+                    'archive' => $this->applyProductStatusFilter($allProducts, 'archive')->count(),
+                    'inactive' => $this->applyProductStatusFilter($allProducts, 'inactive')->count(),
+                    'all' => $allProducts->count(),
+                ],
             ],
             'filters' => [
                 'search' => (string) $request->query('search', ''),
                 'category' => (string) $request->query('category', ''),
                 'platform' => (string) $request->query('platform', ''),
                 'fill' => (string) $request->query('fill', 'all'),
+                'product_status' => $productStatus,
             ],
         ]);
     }
@@ -126,7 +138,7 @@ class HppController extends Controller
         }
 
         return redirect()
-            ->route('hpp.index', array_filter($request->only(['search', 'category', 'platform', 'fill'])))
+            ->route('hpp.index', array_filter($request->only(['search', 'category', 'platform', 'fill', 'product_status'])))
             ->with('success', $message);
     }
 
@@ -179,6 +191,21 @@ class HppController extends Controller
         return $product->variants->every(
             fn ($variant) => $variant->hpp_amount !== null || $product->hpp_amount !== null
         );
+    }
+
+    private function applyProductStatusFilter(Collection $products, string $status): Collection
+    {
+        return match ($status) {
+            'archive' => $products->filter(
+                fn (Product $product) => strtoupper((string) $product->external_status) === 'UNLIST'
+            ),
+            'inactive' => $products->filter(
+                fn (Product $product) => !$product->is_active
+                    && strtoupper((string) $product->external_status) !== 'UNLIST'
+            ),
+            'all' => $products,
+            default => $products->where('is_active', true),
+        };
     }
 
     private function nullableNumber(mixed $value): int|float|null

@@ -83,14 +83,14 @@
     <section class="report-filter-card hpp-filter-card">
         <form method="GET" action="{{ route('hpp.index') }}" class="row g-2 align-items-end">
             <input type="hidden" name="fill" value="{{ $f['fill'] ?? 'all' }}">
-            <div class="col-lg-5">
+            <div class="col-lg-4">
                 <label class="hub-form-label">Cari produk atau varian</label>
                 <div class="hpp-search-input">
                     <i class="fas fa-search"></i>
                     <input type="search" name="search" class="hub-form-control" value="{{ $f['search'] ?? '' }}" placeholder="Nama, SKU, atau ID Shopee">
                 </div>
             </div>
-            <div class="col-md-4 col-lg-3">
+            <div class="col-md-4 col-lg-2">
                 <label class="hub-form-label">Kategori</label>
                 <select name="category" class="hub-form-select hub-form-control">
                     <option value="">Semua kategori</option>
@@ -105,6 +105,15 @@
                     <option value="">Semua</option>
                     <option value="shopee" @selected(($f['platform'] ?? '') === 'shopee')>Shopee</option>
                     <option value="internal" @selected(($f['platform'] ?? '') === 'internal')>Internal</option>
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <label class="hub-form-label">Status produk</label>
+                <select name="product_status" class="hub-form-select hub-form-control">
+                    <option value="active" @selected(($f['product_status'] ?? 'active') === 'active')>Aktif ({{ hub_num($st['product_statuses']['active'] ?? 0) }})</option>
+                    <option value="archive" @selected(($f['product_status'] ?? 'active') === 'archive')>Archive ({{ hub_num($st['product_statuses']['archive'] ?? 0) }})</option>
+                    <option value="inactive" @selected(($f['product_status'] ?? 'active') === 'inactive')>Nonaktif ({{ hub_num($st['product_statuses']['inactive'] ?? 0) }})</option>
+                    <option value="all" @selected(($f['product_status'] ?? 'active') === 'all')>Semua ({{ hub_num($st['product_statuses']['all'] ?? 0) }})</option>
                 </select>
             </div>
             <div class="col-md-4 col-lg-2 d-flex gap-2">
@@ -125,7 +134,7 @@
 
     <form method="POST" action="{{ route('hpp.save') }}" id="hppForm">
         @csrf
-        @foreach(['search', 'category', 'platform', 'fill'] as $filterKey)
+        @foreach(['search', 'category', 'platform', 'fill', 'product_status'] as $filterKey)
             @if(($f[$filterKey] ?? '') !== '' && !($filterKey === 'fill' && $f[$filterKey] === 'all'))
                 <input type="hidden" name="{{ $filterKey }}" value="{{ $f[$filterKey] }}">
             @endif
