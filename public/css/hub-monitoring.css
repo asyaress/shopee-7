@@ -322,6 +322,203 @@
     box-shadow: 2px 0 4px rgba(0,0,0,.04);
 }
 
+/* Rekap month picker */
+.rekap-picker-card .hub-card-body {
+    padding: 1rem 1.15rem;
+}
+
+.rekap-mode-tabs {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    padding: 0.25rem;
+    background: #f1f5f9;
+    border-radius: 12px;
+}
+
+.rekap-mode-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+}
+
+.rekap-mode-tab.is-active {
+    background: #fff;
+    color: #6b1528;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.rekap-picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+}
+
+.rekap-picker-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.rekap-picker-submit {
+    min-height: 44px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.rekap-picker-hint {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.65rem;
+}
+
+.rekap-picker-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+}
+
+.rekap-picker-label {
+    font-size: 0.8125rem;
+    color: #475569;
+    font-weight: 600;
+}
+
+.rekap-picker-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.rekap-chip-btn {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.rekap-chip-btn:hover {
+    border-color: #6b1528;
+    color: #6b1528;
+}
+
+.rekap-month-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 0.4rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.25rem;
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+    background: #fafbfc;
+}
+
+.rekap-month-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    min-height: 36px;
+}
+
+.rekap-month-chip:has(input:checked) {
+    border-color: #6b1528;
+    background: #fce8ee;
+    color: #6b1528;
+    font-weight: 600;
+}
+
+.rekap-month-chip input {
+    accent-color: #6b1528;
+}
+
+.rekap-compare-count {
+    font-size: 0.75rem;
+    color: #64748b;
+    align-self: center;
+}
+
+.rekap-empty-icon {
+    font-size: 2.5rem;
+    color: #cbd5e1;
+    margin-bottom: 0.75rem;
+}
+
+.rekap-detail-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.rekap-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.8125rem;
+}
+
+.rekap-detail-row:last-child {
+    border-bottom: none;
+}
+
+.rekap-detail-label {
+    color: #64748b;
+    flex: 1;
+}
+
+.rekap-detail-value {
+    font-weight: 600;
+    color: #1e293b;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.best-seller-list--single {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+@media (max-width: 576px) {
+    .rekap-mode-tab {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.4rem;
+    }
+    .rekap-month-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: 240px;
+    }
+    .rekap-picker-submit {
+        width: 100%;
+    }
+}
+
 .best-seller-mom {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

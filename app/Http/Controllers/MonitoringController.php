@@ -193,14 +193,68 @@ class MonitoringController extends Controller
 
     public function rekap(Request $request)
     {
-        $report = $this->reportService->build($request);
-        $rekap = $this->retailRekap->build($request);
+        $mode = $request->query('mode') === 'compare' ? 'compare' : 'detail';
+        $status = $request->query('status', 'completed');
+        $available = $this->retailRekap->availableMonthKeys(24);
 
-        return view('hub.monitoring.rekap', array_merge($report, [
+        $monthKeys = [];
+        $selectedMonth = null;
+
+        if ($mode === 'compare') {
+            $monthKeys = $this->retailRekap->filterValidMonths((array) $request->query('compare', []), $available);
+        } else {
+            $selectedMonth = $this->retailRekap->normalizeMonth($request->query('month'));
+            if ($selectedMonth && in_array($selectedMonth, $available, true)) {
+                $monthKeys = [$selectedMonth];
+            }
+        }
+
+        $rekap = count($monthKeys) > 0
+            ? $this->retailRekap->buildForMonths($request, $monthKeys)
+            : $this->retailRekap->emptyStructure($available);
+
+        $summary = [];
+        if (count($monthKeys) === 1) {
+            $col = $rekap['columns'][$monthKeys[0]] ?? [];
+            $summary = $this->retailRekap->summaryFromColumn($col);
+        } elseif (count($monthKeys) > 1) {
+            $summary = $this->aggregateCompareSummary($rekap['columns'] ?? []);
+        }
+
+        return view('hub.monitoring.rekap', [
             'rekap' => $rekap,
+            'summary' => $summary,
+            'rekap_mode' => $mode,
+            'rekap_selected_month' => $selectedMonth,
+            'rekap_compare_months' => $mode === 'compare' ? $monthKeys : [],
+            'rekap_has_data' => count($monthKeys) > 0,
+            'filters' => ['status' => $status],
+            'shop' => ['label' => \App\Support\ShopeeShopContext::shopLabel(\App\Support\ShopeeShopContext::shopId())],
             'activeSection' => 'rekap',
             'navZone' => 'laporan',
-        ]));
+        ]);
+    }
+
+    private function aggregateCompareSummary(array $columns): array
+    {
+        if ($columns === []) {
+            return [];
+        }
+
+        $gross = array_sum(array_column($columns, 'gross'));
+        $netProfit = array_sum(array_column($columns, 'net_profit'));
+        $orders = array_sum(array_column($columns, 'orders'));
+
+        return [
+            'gross' => $gross,
+            'net_profit' => $netProfit,
+            'orders_count' => $orders,
+            'aov_gross' => $orders > 0 ? (int) round($gross / $orders) : null,
+            'gross_margin_pct' => $gross > 0
+                ? array_sum(array_column($columns, 'gross_profit')) / $gross
+                : null,
+            'net_margin_pct' => $gross > 0 ? $netProfit / $gross : null,
+        ];
     }
 
     public function bcg(Request $request)

@@ -13,7 +13,7 @@
     <link href="{{ asset('css/hub-report.css') }}?v=4" rel="stylesheet">
     <link href="{{ asset('css/hub-pages.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-datatables.css') }}?v=3" rel="stylesheet">
-    <link href="{{ asset('css/hub-monitoring.css') }}?v=10" rel="stylesheet">
+    <link href="{{ asset('css/hub-monitoring.css') }}?v=11" rel="stylesheet">
     <link href="{{ asset('css/hub-charts.css') }}?v=4" rel="stylesheet">
     <link href="{{ asset('css/hub-mobile.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-chatbot.css') }}?v=2" rel="stylesheet">
