@@ -1,10 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Pusat Aksi — Monitoring')
-
-@push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=2" rel="stylesheet">
-@endpush
+@section('title', 'Pusat Aksi')
 
 @section('content')
 @php
@@ -12,39 +8,32 @@
     $hpp = $ac['hpp_quality'] ?? [];
     $cash = $ac['cash_guard'] ?? [];
     $shop = $shop ?? [];
+    $heroExtra = '<span class="small text-muted"><i class="fas fa-store"></i> '.e($shop['label'] ?? $activeShopeeShopLabel ?? 'Toko').' · HPP '.e($hpp['complete_pct_label'] ?? '—').'</span>';
 @endphp
 
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-bolt me-2"></i>Pusat Aksi</h1>
-        <div class="report-hero-meta">
-            <span><i class="fas fa-store"></i> {{ $shop['label'] ?? $activeShopeeShopLabel ?? 'Toko' }}</span>
-            <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
-            <span>Kelengkapan HPP: <strong>{{ $hpp['complete_pct_label'] ?? '—' }}</strong></span>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     @if(!($hpp['recommendations_allowed'] ?? true))
-    <div class="hub-alert" style="background:#fef3c7;border-color:#fcd34d;color:#92400e;">
+    <div class="hub-alert mb-3" style="background:#fef3c7;border-color:#fcd34d;color:#92400e;" data-ceo="alerts">
         <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>Data HPP belum cukup.</strong> Lengkapi minimal 70% SKU sebelum mengikuti rekomendasi iklan/harga.
-        <a href="{{ route('hpp.index', ['fill' => 'missing']) }}" class="ms-2">Perbaiki HPP →</a>
+        <strong>HPP belum lengkap.</strong> Isi minimal 70% produk dulu — kalau tidak, saran iklan bisa salah.
+        <a href="{{ route('hpp.index', ['fill' => 'missing']) }}" class="ms-2">Isi HPP →</a>
     </div>
     @endif
 
-  <div class="mon-kpi-row">
-        <div class="mon-kpi"><div class="label">Prioritas urgent</div><div class="value">{{ $ac['counts']['urgent'] ?? 0 }}</div></div>
-        <div class="mon-kpi"><div class="label">Peluang scale</div><div class="value">{{ $ac['counts']['opportunities'] ?? 0 }}</div></div>
-        <div class="mon-kpi"><div class="label">SKU bleeder</div><div class="value text-danger">{{ $ac['counts']['bleeders'] ?? 0 }}</div></div>
-        <div class="mon-kpi"><div class="label">Pace iklan aman/minggu</div><div class="value">{{ hub_rp($cash['safe_weekly_ads_suggest'] ?? 0) }}</div></div>
+  <div class="mon-kpi-row" data-ceo="main-kpi">
+        <div class="mon-kpi"><div class="label">Harus hari ini</div><div class="value">{{ $ac['counts']['urgent'] ?? 0 }}</div></div>
+        <div class="mon-kpi"><div class="label">Boleh tambah iklan</div><div class="value">{{ $ac['counts']['opportunities'] ?? 0 }}</div></div>
+        <div class="mon-kpi"><div class="label">Produk rugi</div><div class="value text-danger">{{ $ac['counts']['bleeders'] ?? 0 }}</div></div>
+        <div class="mon-kpi"><div class="label">Iklan aman / minggu</div><div class="value">{{ hub_rp($cash['safe_weekly_ads_suggest'] ?? 0) }}</div></div>
     </div>
 
     @if(!empty($ac['data_blockers']))
     <div class="hub-card mb-3">
-        <div class="hub-card-header"><h2 class="report-section-title">Blocker data</h2></div>
+        <div class="hub-card-header"><h2 class="report-section-title">Data belum siap</h2></div>
         <div class="hub-card-body">
             @foreach($ac['data_blockers'] as $b)
             <div class="report-insight {{ $b['type'] }} mb-2">
@@ -60,8 +49,8 @@
 
     <div class="hub-card mb-3">
         <div class="hub-card-header">
-            <h2 class="report-section-title">Cash guard</h2>
-            <p class="report-section-desc mb-0">{{ $cash['message'] ?? '' }}</p>
+            <h2 class="report-section-title">Jaga uang toko</h2>
+            <p class="report-section-desc mb-0">{{ $cash['message'] ?? 'Pastikan iklan tidak melebihi kemampuan cash toko.' }}</p>
         </div>
         <div class="hub-card-body small">
             Net masuk periode: <strong>{{ hub_rp($cash['net_income_period'] ?? 0) }}</strong> ·
@@ -76,7 +65,7 @@
     <div class="row g-3">
         <div class="col-lg-7">
             <div class="hub-card h-100">
-                <div class="hub-card-header"><h2 class="report-section-title">Tindakan urgent</h2></div>
+                <div class="hub-card-header"><h2 class="report-section-title">Kerjakan dulu</h2></div>
                 <div class="hub-card-body">
                     @forelse($ac['urgent'] ?? [] as $item)
                         @include('hub.partials.action-item', ['item' => $item])
@@ -88,7 +77,7 @@
         </div>
         <div class="col-lg-5">
             <div class="hub-card h-100">
-                <div class="hub-card-header"><h2 class="report-section-title">Peluang (scale iklan)</h2></div>
+                <div class="hub-card-header"><h2 class="report-section-title">Boleh scale iklan</h2></div>
                 <div class="hub-card-body">
                     @forelse($ac['opportunities'] ?? [] as $item)
                         @include('hub.partials.action-item', ['item' => $item])
@@ -99,5 +88,5 @@
             </div>
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection

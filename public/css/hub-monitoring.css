@@ -489,3 +489,212 @@
     border-radius: 999px;
     font-size: 0.75rem;
 }
+
+/* ── CEO clean / ROAS analisa ── */
+.ceo-clean .report-hero--compact { padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+
+.roas-hero-card {
+    background: linear-gradient(135deg, #6b1528 0%, #8b2942 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    text-align: center;
+}
+.roas-hero-label { font-size: 0.8125rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.04em; }
+.roas-hero-value { font-size: 3rem; font-weight: 700; line-height: 1.1; margin: 0.25rem 0; }
+.roas-hero-sub { font-size: 0.875rem; opacity: 0.9; }
+.roas-hero-compare { margin-top: 0.75rem; font-size: 0.8125rem; opacity: 0.85; }
+
+.ceo-action-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+.ceo-action-success { border-left: 4px solid #16a34a; background: #f0fdf4; }
+.ceo-action-warning { border-left: 4px solid #d97706; background: #fffbeb; }
+.ceo-action-danger { border-left: 4px solid #dc2626; background: #fef2f2; }
+.ceo-action-info { border-left: 4px solid #2563eb; background: #eff6ff; }
+.ceo-action-icon { font-size: 1.5rem; line-height: 1; opacity: 0.85; }
+.ceo-action-success .ceo-action-icon { color: #16a34a; }
+.ceo-action-warning .ceo-action-icon { color: #d97706; }
+.ceo-action-danger .ceo-action-icon { color: #dc2626; }
+.ceo-action-body { flex: 1; min-width: 200px; }
+.ceo-action-title { font-weight: 700; font-size: 0.9375rem; margin-bottom: 0.15rem; }
+.ceo-action-headline { font-size: 0.875rem; color: #475569; margin-bottom: 0.35rem; }
+.ceo-action-steps { font-size: 0.8125rem; padding-left: 1.1rem; color: #334155; }
+.ceo-action-cta { align-self: center; white-space: nowrap; }
+
+.roas-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.65rem;
+}
+.roas-mini {
+    background: #fff;
+    border: 1px solid #e8e0e4;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.roas-mini-label { font-size: 0.6875rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+.roas-mini-val { font-size: 1.0625rem; font-weight: 600; color: #1e293b; }
+
+.roas-count-pills { display: flex; gap: 0.35rem; }
+.roas-pill { font-size: 0.6875rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-weight: 600; }
+.roas-pill.scale { background: #dcfce7; color: #166534; }
+.roas-pill.cut { background: #fee2e2; color: #991b1b; }
+
+.roas-product-card {
+    background: #fff;
+    border: 1px solid #e8e0e4;
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid #cbd5e1;
+}
+.roas-action-success { border-left-color: #16a34a; }
+.roas-action-warning { border-left-color: #d97706; }
+.roas-action-danger { border-left-color: #dc2626; }
+.roas-product-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.roas-product-name { font-weight: 600; font-size: 0.9375rem; color: #6b1528; text-decoration: none; }
+.roas-product-name:hover { text-decoration: underline; }
+.roas-product-action { font-size: 0.75rem; font-weight: 700; white-space: nowrap; padding: 0.15rem 0.5rem; border-radius: 6px; background: #f1f5f9; }
+.roas-action-success .roas-product-action { background: #dcfce7; color: #166534; }
+.roas-action-warning .roas-product-action { background: #fef3c7; color: #92400e; }
+.roas-action-danger .roas-product-action { background: #fee2e2; color: #991b1b; }
+.roas-product-meta { font-size: 0.75rem; color: #64748b; margin: 0.35rem 0 0.5rem; }
+.roas-product-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+    font-size: 0.75rem;
+}
+.roas-product-stats span { display: block; color: #94a3b8; font-size: 0.625rem; text-transform: uppercase; }
+.roas-product-stats strong { font-size: 0.8125rem; }
+
+.ceo-empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    color: #64748b;
+}
+.ceo-empty-state i { font-size: 2rem; opacity: 0.4; margin-bottom: 0.5rem; }
+
+.ceo-details {
+    background: #fff;
+    border: 1px solid #e8e0e4;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.ceo-details summary {
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #64748b;
+    list-style: none;
+}
+.ceo-details summary::-webkit-details-marker { display: none; }
+.ceo-details summary::before { content: '▸ '; }
+.ceo-details[open] summary::before { content: '▾ '; }
+.ceo-details > div { padding: 0 1rem 1rem; border-top: 1px solid #f1f5f9; }
+
+.ceo-glossary-item { padding: 0.65rem 0; border-bottom: 1px solid #f1f5f9; }
+.ceo-glossary-item:last-child { border-bottom: none; }
+.ceo-glossary-term { font-weight: 700; font-size: 0.8125rem; color: #6b1528; }
+.ceo-glossary-plain { font-size: 0.8125rem; color: #475569; margin: 0.15rem 0; }
+.ceo-glossary-formula { font-size: 0.75rem; background: #f8fafc; padding: 0.2rem 0.45rem; border-radius: 4px; color: #334155; }
+
+.ceo-formula-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.8125rem;
+}
+.ceo-formula-row code { font-size: 0.75rem; color: #475569; white-space: nowrap; }
+
+@media (max-width: 576px) {
+    .roas-hero-value { font-size: 2.25rem; }
+    .roas-product-stats { grid-template-columns: repeat(2, 1fr); }
+    .ceo-formula-row { flex-direction: column; gap: 0.15rem; }
+}
+
+/* ── CEO guide / highlight tour ── */
+.ceo-page-sub { font-size: 0.8125rem; color: rgba(255,255,255,.88); margin-top: 0.35rem; max-width: 42rem; }
+.ceo-page-header .ceo-page-sub { color: #64748b; }
+.ceo-help-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+.ceo-help-btn:hover { background: #f8fafc; border-color: #94a3b8; color: #334155; }
+
+body.ceo-guide-open { overflow: hidden; }
+.ceo-guide-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+.ceo-guide-overlay[hidden] { display: none !important; }
+.ceo-guide-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(2px);
+}
+.ceo-guide-spotlight {
+    position: absolute;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.72);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+    z-index: 1;
+    transition: top 0.25s, left 0.25s, width 0.25s, height 0.25s;
+}
+.ceo-guide-card {
+    position: absolute;
+    z-index: 2;
+    width: min(420px, calc(100vw - 2rem));
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.25rem 1.35rem;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+.ceo-guide-progress { font-size: 0.6875rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.ceo-guide-title { font-size: 1.0625rem; font-weight: 700; color: #6b1528; margin: 0 0 0.5rem; }
+.ceo-guide-body { font-size: 0.875rem; color: #475569; line-height: 1.55; margin: 0 0 1rem; }
+.ceo-guide-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ceo-guide-skip {
+    margin-right: auto;
+    border: none;
+    background: none;
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    padding: 0.25rem 0;
+}
+.ceo-guide-skip:hover { color: #64748b; }
+
+.ceo-clean .report-hero--compact { padding: 0.85rem 1rem; margin-bottom: 0.5rem; background: #fff; border: 1px solid #e8e0e4; border-radius: 12px; }
+.ceo-clean .report-hero--compact h1 { color: #6b1528; font-size: 1.0625rem; }
+.ceo-clean .report-hero--compact h1 i { opacity: 0.85; }

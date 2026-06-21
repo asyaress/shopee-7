@@ -1,6 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Rekap CEO — Monitoring')
+@section('title', 'Rekap Bulanan')
 
 @section('content')
 @php
@@ -10,24 +10,35 @@
     $columns = $rek['columns'] ?? [];
     $metrics = $rek['metrics'] ?? [];
     $best = $rek['best_sellers'] ?? [];
+    $heroExtra = '<span class="small text-muted">'.count($months).' bulan · '.e($shop['label'] ?? '').'</span>';
+    $rekChartLabels = [];
+    $rekGross = [];
+    $rekNetProfit = [];
+    $rekRoas = [];
+    foreach ($months as $mk) {
+        $rekChartLabels[] = $columns[$mk]['short'] ?? $mk;
+        $rekGross[] = (int) ($columns[$mk]['gross'] ?? 0);
+        $rekNetProfit[] = (int) ($columns[$mk]['net_profit'] ?? 0);
+        $rekRoas[] = (float) ($columns[$mk]['roas'] ?? 0);
+    }
 @endphp
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-table me-2"></i>Rekap CEO</h1>
-        <div class="report-hero-meta">
-            <span>Grid metrik {{ count($months) }} bulan — setara Excel HASIL/REKAP</span>
-            <span>{{ $shop['label'] ?? '' }}</span>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
 
-    <div class="mon-kpi-row">
-        <div class="mon-kpi"><div class="label">AOV kotor (periode)</div><div class="value">{{ hub_rp($s['aov_gross'] ?? 0) }}</div></div>
-        <div class="mon-kpi"><div class="label">Basket size</div><div class="value">{{ $s['basket_size'] ?? '—' }} item/order</div></div>
-        <div class="mon-kpi"><div class="label">Gross margin</div><div class="value">{{ hub_pct($s['gross_margin_pct'] ?? null) }}</div></div>
-        <div class="mon-kpi"><div class="label">Net margin</div><div class="value">{{ hub_pct($s['net_margin_pct'] ?? null) }}</div></div>
+    <div class="mon-kpi-row" data-ceo="main-kpi">
+        <div class="mon-kpi"><div class="label">Rata-rata order</div><div class="value">{{ hub_rp($s['aov_gross'] ?? 0) }}</div></div>
+        <div class="mon-kpi"><div class="label">Item per order</div><div class="value">{{ $s['basket_size'] ?? '—' }}</div></div>
+        <div class="mon-kpi"><div class="label">Margin kotor</div><div class="value">{{ hub_pct($s['gross_margin_pct'] ?? null) }}</div></div>
+        <div class="mon-kpi"><div class="label">Margin bersih</div><div class="value">{{ hub_pct($s['net_margin_pct'] ?? null) }}</div></div>
     </div>
+
+    @if(count($rekChartLabels) > 0)
+    <div class="fc-chart-stack mb-3">
+        @include('hub.partials.chart-panel', ['id' => 'rekTrend', 'title' => 'Tren penjualan & laba', 'subtitle' => 'Area chart — kotor vs laba bersih', 'size' => 'hero'])
+        @include('hub.partials.chart-panel', ['id' => 'rekRoas', 'title' => 'ROAS per bulan', 'subtitle' => 'Line + label — 1 bulan tampil sebagai gauge', 'size' => 'compact'])
+    </div>
+    @endif
 
     <div class="hub-card mb-3">
         <div class="hub-card-header">
@@ -94,5 +105,27 @@
             </div>
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
+
+@if(count($rekChartLabels ?? []) > 0)
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const labels = @json($rekChartLabels);
+    HubCharts.renderPreset('rekTrend', 'revenue_trend', {
+        labels,
+        datasets: [
+            { label: 'Penjualan kotor', data: @json($rekGross) },
+            { label: 'Laba bersih', data: @json($rekNetProfit) },
+        ],
+    });
+    HubCharts.render('rekRoas', 'line', {
+        labels,
+        datasets: [{ label: 'ROAS', data: @json($rekRoas) }],
+        format: 'roas',
+    });
+});
+</script>
+@endpush
+@endif

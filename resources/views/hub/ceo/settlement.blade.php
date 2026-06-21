@@ -1,23 +1,24 @@
 @extends('layouts.hub')
 
-@section('title', 'Arus Kas — CEO')
-
+@section('title', 'Arus Kas')
 @section('content')
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-wallet me-2"></i>Estimasi Arus Kas</h1>
-        <p class="small opacity-90 mb-0">{{ $cashflow['note'] ?? '' }}</p>
-    </div>
+@include('hub.partials.ceo.shell-open')
     @include('hub.partials.hub-zone-nav')
 
-    <div class="mon-kpi-row mb-3">
-        <div class="mon-kpi"><div class="label">Dana pending</div><div class="value">{{ hub_rp($cashflow['pending_settlement'] ?? 0) }}</div></div>
-        <div class="mon-kpi"><div class="label">Sudah dilepas (periode)</div><div class="value">{{ hub_rp($cashflow['released_total'] ?? 0) }}</div></div>
-        <div class="mon-kpi"><div class="label">Hold estimasi</div><div class="value">{{ $cashflow['hold_days'] ?? 3 }} hari</div></div>
+    @if(!empty($cashflow['note']))
+    <div class="hub-alert mb-3" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af;">
+        <i class="fas fa-info-circle me-2"></i>{{ $cashflow['note'] }}
+    </div>
+    @endif
+
+    <div class="mon-kpi-row mb-3" data-ceo="main-kpi">
+        <div class="mon-kpi"><div class="label">Uang belum cair</div><div class="value">{{ hub_rp($cashflow['pending_settlement'] ?? 0) }}</div></div>
+        <div class="mon-kpi"><div class="label">Sudah masuk rekening</div><div class="value">{{ hub_rp($cashflow['released_total'] ?? 0) }}</div></div>
+        <div class="mon-kpi"><div class="label">Tunggu Shopee</div><div class="value">{{ $cashflow['hold_days'] ?? 3 }} hari</div></div>
     </div>
 
     <div class="hub-card mb-3">
-        <div class="hub-card-header"><h2 class="report-section-title">Import Data Income</h2></div>
+        <div class="hub-card-header"><h2 class="report-section-title">Import data dari Shopee</h2></div>
         <div class="hub-card-body">
             <p class="small text-muted">{{ $cashflow['import_hint'] ?? '' }}</p>
             <form method="POST" action="{{ route('ceo.settlement.import') }}" enctype="multipart/form-data" class="hub-filter-bar mt-2">
@@ -59,19 +60,19 @@
             </table>
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const weeks = @json($cashflow['weeks'] ?? []);
-    HubCharts.render('cashChart', 'bar', {
+    HubCharts.renderPreset('cashChart', 'settlement_cash', {
         labels: weeks.map(w => w.label),
         datasets: [
-            { label: 'Net masuk', data: weeks.map(w => w.net_in) },
-            { label: 'Iklan', data: weeks.map(w => w.ads_out) },
-        ]
+            { label: 'Uang masuk', data: weeks.map(w => w.net_in) },
+            { label: 'Iklan keluar', data: weeks.map(w => w.ads_out) },
+        ],
     });
 });
 </script>

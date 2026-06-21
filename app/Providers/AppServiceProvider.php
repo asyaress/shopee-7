@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\CeoPageGuide;
 use App\Support\ShopeeShopContext;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
@@ -36,6 +37,13 @@ class AppServiceProvider extends ServiceProvider
             $view->with('shopeeShopOptions', ShopeeShopContext::shopOptions());
             $view->with('activeShopeeShopId', ShopeeShopContext::shopId());
             $view->with('activeShopeeShopLabel', ShopeeShopContext::shopLabel(ShopeeShopContext::shopId()));
+            $view->with('ceoGuide', CeoPageGuide::forCurrentRoute());
+        });
+
+        View::composer('hub.*', function ($view) {
+            if (! $view->offsetExists('ceoGuide')) {
+                $view->with('ceoGuide', CeoPageGuide::forCurrentRoute());
+            }
         });
     }
 }

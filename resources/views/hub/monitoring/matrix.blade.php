@@ -2,20 +2,9 @@
 
 @section('title', 'Laba per SKU')
 
-@push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
-@endpush
-
 @section('content')
-@php $q = request()->query(); @endphp
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-th me-2"></i>Laba per SKU</h1>
-        <div class="report-hero-meta">
-            <span><i class="fas fa-store"></i> {{ $shop['label'] ?? '—' }}</span>
-            <span>{{ $meta['period_label'] ?? '' }}</span>
-        </div>
-    </div>
+@php $q = request()->query(); $heroExtra = '<span class="small text-muted">'.e($shop['label'] ?? '').' · '.e($meta['period_label'] ?? '').'</span>'; @endphp
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
@@ -46,5 +35,30 @@
         </div>
         @endforeach
     </div>
-</div>
+
+    @include('hub.partials.chart-panel', [
+        'id' => 'matrixPolar',
+        'title' => 'Distribusi SKU',
+        'subtitle' => 'Polar area — Star, Maintain, Perbaiki harga, Bleeder',
+        'size' => 'default',
+    ])
+
+@include('hub.partials.ceo.shell-close')
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const q = @json($quadrants ?? []);
+    HubCharts.renderPreset('matrixPolar', 'bcg_mix', {
+        labels: ['Stars', 'Maintain', 'Perbaiki harga', 'Bleeders'],
+        data: [
+            (q.stars || []).length,
+            (q.maintain || []).length,
+            (q.fix_price || []).length,
+            (q.bleeders || []).length,
+        ],
+    });
+});
+</script>
+@endpush

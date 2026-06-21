@@ -115,8 +115,10 @@ class MonitoringController extends Controller
         }
 
         $report = $this->reportService->build($request);
+        $charts = $this->chartService->chartsForProfit($report);
 
         return view('hub.monitoring', array_merge($report, [
+            'charts' => $charts,
             'activeSection' => 'profit',
             'navZone' => 'laporan',
         ]));

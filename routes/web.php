@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HppController;
 use App\Http\Controllers\ManageController;
 use App\Http\Controllers\CeoController;
+use App\Http\Controllers\CeoChatbotController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\ProfitReportController;
 use App\Http\Controllers\ShopSwitchController;
@@ -56,6 +57,8 @@ Route::middleware('simple.auth')->group(function () {
         Route::get('/analisis-produk', [MonitoringController::class, 'productAnalysisIndex'])->name('product-analysis.index');
         Route::get('/analisis-produk/{product}', [MonitoringController::class, 'productAnalysis'])->name('product-analysis.show');
         Route::get('/produk/{product}', [MonitoringController::class, 'product'])->name('product');
+        Route::get('/chatbot/bootstrap', [CeoChatbotController::class, 'bootstrap'])->name('chatbot.bootstrap');
+        Route::post('/chatbot/ask', [CeoChatbotController::class, 'ask'])->name('chatbot.ask');
     });
     Route::get('/', [MonitoringController::class, 'overview']);
 

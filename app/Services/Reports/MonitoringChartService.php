@@ -190,4 +190,55 @@ class MonitoringChartService
 
         return compact('labels', 'data');
     }
+
+    public function chartsForProfit(array $report): array
+    {
+        $monthly = $report['monthly'] ?? [];
+        $fb = $report['fee_breakdown'] ?? [];
+        $s = $report['summary'] ?? [];
+        $products = collect($report['products'] ?? [])
+            ->filter(fn ($p) => ($p['net_profit'] ?? 0) != 0 || ($p['gross'] ?? 0) > 0)
+            ->sortByDesc('net_profit')
+            ->take(12)
+            ->values();
+
+        return [
+            'monthly_pl' => [
+                'labels' => array_column($monthly, 'label'),
+                'datasets' => [
+                    ['label' => 'Penjualan kotor', 'data' => array_map(fn ($m) => (int) ($m['gross'] ?? 0), $monthly)],
+                    ['label' => 'Laba bersih', 'data' => array_map(fn ($m) => (int) ($m['net_profit'] ?? 0), $monthly)],
+                ],
+            ],
+            'fee_treemap' => [
+                'data' => $this->feeTreemapItems($fb),
+            ],
+            'product_treemap' => [
+                'data' => $products->map(fn ($p) => [
+                    'label' => \Illuminate\Support\Str::limit($p['name'] ?? '—', 28),
+                    'value' => max(0, (int) ($p['net_profit'] ?? 0)),
+                ])->filter(fn ($i) => $i['value'] > 0)->values()->all(),
+            ],
+            'margin_radial' => [
+                'series' => [round(max(0, min(100, ($s['margin'] ?? 0) * 100)), 1)],
+                'labels' => ['Margin bersih'],
+                'max' => 100,
+            ],
+        ];
+    }
+
+    /** @return list<array{label: string, value: int}> */
+    private function feeTreemapItems(array $fb): array
+    {
+        $map = \App\Services\Finance\ShopeeFinancialExtractor::feeLabels();
+        $out = [];
+        foreach ($map as $key => $label) {
+            $val = (int) round(abs($fb[$key] ?? 0));
+            if ($val > 0) {
+                $out[] = ['label' => $label, 'value' => $val];
+            }
+        }
+
+        return $out;
+    }
 }

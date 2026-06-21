@@ -84,10 +84,12 @@ class CeoController extends Controller
     {
         $request->attributes->set('include_all_products', true);
         $report = app(\App\Services\Reports\ProductProfitReportService::class)->build($request);
+        $charts = app(\App\Services\Reports\MonitoringChartService::class)->chartsForAds($report, $request);
 
         return view('hub.ceo.roas', [
             'roas' => $this->roasAdvisor->shopAdvice($report),
             'report' => $report,
+            'charts' => $charts,
             'activeSection' => 'roas',
             'navZone' => null,
             'shop' => ['label' => ShopeeShopContext::shopLabel(ShopeeShopContext::shopId())],

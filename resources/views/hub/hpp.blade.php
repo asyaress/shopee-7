@@ -1,6 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Pusat HPP & Varian - Shopee Profit Hub')
+@section('title', 'Input HPP')
 
 @push('styles')
 <link href="{{ asset('css/hub-hpp.css') }}?v=2" rel="stylesheet">
@@ -10,20 +10,11 @@
 @php
     $st = $stats ?? [];
     $f = $filters ?? [];
+    $heroExtra = '<span class="small text-muted">'.($st['pct'] ?? 0).'% produk sudah punya HPP · '.hub_num($st['variants'] ?? 0).' varian</span>';
 @endphp
 
-<div class="report-shell hpp-workspace">
-    @include('hub.partials.page-hero', [
-        'icon' => 'fa-calculator',
-        'title' => 'Pusat HPP & Varian',
-        'subtitle' => 'Atur biaya dasar sekali, lalu override hanya pada varian yang memang berbeda',
-        'meta' => [
-            ['icon' => 'fa-circle-check', 'text' => ($st['pct'] ?? 0) . '% produk siap dihitung'],
-            ['icon' => 'fa-layer-group', 'text' => hub_num($st['variants'] ?? 0) . ' varian tersinkron'],
-        ],
-        'actions' => '<a href="' . route('manage.index') . '" class="hub-btn hub-btn-outline hpp-hero-action"><i class="fas fa-rotate"></i> Sync Produk</a>'
-            . '<a href="' . route('monitoring.profit') . '" class="hub-btn hub-btn-outline hpp-hero-action"><i class="fas fa-chart-pie"></i> Lihat Laba</a>',
-    ])
+<div class="hpp-workspace">
+@include('hub.partials.ceo.shell-open')
 
     @if(session('success'))
         <div class="alert alert-success hpp-alert"><i class="fas fa-circle-check"></i> {{ session('success') }}</div>
@@ -279,6 +270,7 @@
         </div>
     </form>
 
+@include('hub.partials.ceo.shell-close')
 </div>
 @endsection
 

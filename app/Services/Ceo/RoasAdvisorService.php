@@ -8,9 +8,7 @@ use App\Support\ShopeeShopContext;
 use Carbon\Carbon;
 
 /**
- * ROAS Shopee Ads (API): GMV atribusi iklan / spend.
- * ROAS bisnis (app): penjualan kotor order / spend.
- * ROAS impas: 1 / (laba kotor / kotor) sebelum iklan.
+ * Analisis ROAS untuk CEO — selaras Shopee Ads (GMV/spend) & template Excel ROAS HLP.
  */
 class RoasAdvisorService
 {
@@ -27,11 +25,12 @@ class RoasAdvisorService
 
         $gross = (float) ($s['gross'] ?? 0);
         $grossProfit = (float) ($s['gross_profit'] ?? 0);
+        $cogs = (float) ($s['cogs'] ?? 0);
         $adsSpend = (float) ($s['ads_total'] ?? 0);
         $netProfit = (float) ($s['net_profit'] ?? 0);
 
-        $contributionRatio = $gross > 0 ? $grossProfit / $gross : 0;
-        $breakevenRoasGross = $contributionRatio > 0 ? 1 / $contributionRatio : null;
+        $marginProfit = $gross > 0 ? $grossProfit / $gross : 0;
+        $breakevenRoasGross = $marginProfit > 0 ? 1 / $marginProfit : null;
         $safety = (float) config('monitoring.roas_advisor.safety_multiplier', 1.25);
         $targetRoasGross = $breakevenRoasGross ? $breakevenRoasGross * $safety : null;
 
@@ -48,91 +47,192 @@ class RoasAdvisorService
             ->whereBetween('report_date', [$start->toDateString(), $end->toDateString()])
             ->sum('spend');
 
-        $shopeeAdsRoas = $adsSpendApi > 0 ? $adsGmv / $adsSpendApi : null;
+        $shopeeRoas = $adsSpendApi > 0 ? $adsGmv / $adsSpendApi : null;
         $businessRoas = $adsSpend > 0 ? $gross / $adsSpend : ($s['roas'] ?? null);
+
+        $acos = $gross > 0 && $adsSpend > 0 ? $adsSpend / $gross : null;
+        $targetAcos = $targetRoasGross ? 1 / $targetRoasGross : null;
 
         $breakevenShopeeRoas = null;
         $setRoasShop = null;
-        if ($contributionRatio > 0 && $gross > 0 && $adsGmv > 0 && $adsSpendApi > 0) {
+        if ($marginProfit > 0 && $gross > 0 && $adsGmv > 0) {
             $gmvToGross = $gross / max(1, $adsGmv);
-            $breakevenShopeeRoas = (1 / $contributionRatio) / max(0.01, $gmvToGross);
-            $setRoasShop = $breakevenShopeeRoas * $safety / 0.70;
+            $breakevenShopeeRoas = (1 / $marginProfit) / max(0.01, $gmvToGross);
+            $setRoasShop = ($breakevenShopeeRoas * $safety) / 0.70;
         }
 
         $adsByProduct = $this->adsMetrics->loadByProduct($shopId, $start, $end);
+        $products = $this->productAdvice($report['products'] ?? [], $safety, $adsByProduct);
+
+        $ceoAction = $this->ceoAction(
+            $businessRoas,
+            $targetRoasGross,
+            $shopeeRoas,
+            $setRoasShop,
+            $netProfit,
+            $products
+        );
 
         return [
-            'definitions' => [
-                'shopee_ads' => 'ROAS Shopee (AMS) = GMV atribusi iklan ÷ spend — angka yang muncul di dashboard Shopee Ads.',
-                'business' => 'ROAS bisnis = penjualan kotor order ÷ spend iklan (termasuk penjualan organik + iklan).',
-                'set_roas' => 'Rekomendasi Set ROAS = target impas Shopee ÷ 70% — angka praktis untuk input di dashboard iklan.',
-                'breakeven' => 'ROAS impas bisnis = 1 ÷ (laba kotor ÷ kotor). Di bawah ini iklan memakan margin sebelum operasional.',
-            ],
-            'metrics' => [
-                'shopee_ads_roas' => $shopeeAdsRoas,
-                'business_roas' => $businessRoas,
-                'breakeven_roas_gross' => $breakevenRoasGross,
-                'target_roas_gross' => $targetRoasGross,
-                'breakeven_roas_shopee_gmv' => $breakevenShopeeRoas,
-                'target_roas_shopee_gmv' => $breakevenShopeeRoas ? $breakevenShopeeRoas * $safety : null,
+            'period_label' => $report['meta']['period_label'] ?? null,
+            'glossary' => $this->glossary(),
+            'formulas' => $this->formulasReference(),
+            'scorecard' => [
                 'set_roas_shopee' => $setRoasShop ? round($setRoasShop, 2) : null,
-                'contribution_margin' => $contributionRatio,
-                'gmv_to_gross_ratio' => ($adsGmv > 0 && $gross > 0) ? $gross / $adsGmv : null,
+                'shopee_roas_now' => $shopeeRoas !== null ? round($shopeeRoas, 2) : null,
+                'business_roas_now' => $businessRoas !== null ? round($businessRoas, 2) : null,
+                'target_roas' => $targetRoasGross ? round($targetRoasGross, 2) : null,
+                'breakeven_roas' => $breakevenRoasGross ? round($breakevenRoasGross, 2) : null,
+                'margin_profit_pct' => round($marginProfit * 100, 1),
+                'acos_pct' => $acos !== null ? round($acos * 100, 1) : null,
+                'target_acos_pct' => $targetAcos !== null ? round($targetAcos * 100, 1) : null,
+                'ads_spend' => (int) round($adsSpendApi),
+                'ads_gmv' => (int) round($adsGmv),
+                'gross' => (int) round($gross),
+                'cogs' => (int) round($cogs),
+                'gross_profit' => (int) round($grossProfit),
+                'net_profit' => (int) round($netProfit),
+            ],
+            'ceo_action' => $ceoAction,
+            'products' => $products,
+            'counts' => [
+                'scale' => count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'scale')),
+                'cut' => count(array_filter($products, fn ($p) => in_array($p['action']['code'] ?? '', ['cut', 'stop'], true))),
+                'ok' => count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'ok')),
+            ],
+            // legacy keys for any old references
+            'metrics' => [
+                'shopee_ads_roas' => $shopeeRoas,
+                'business_roas' => $businessRoas,
+                'target_roas_gross' => $targetRoasGross,
+                'set_roas_shopee' => $setRoasShop ? round($setRoasShop, 2) : null,
                 'ads_gmv' => (int) round($adsGmv),
                 'ads_spend' => (int) round($adsSpendApi),
             ],
-            'recommendation' => $this->recommendation(
-                $businessRoas,
-                $targetRoasGross,
-                $shopeeAdsRoas,
-                $breakevenShopeeRoas ? $breakevenShopeeRoas * $safety : null,
-                $setRoasShop,
-                $netProfit
-            ),
-            'products' => $this->productAdvice($report['products'] ?? [], $safety, $adsByProduct),
+            'recommendation' => [
+                'title' => $ceoAction['title'],
+                'lines' => $ceoAction['steps'],
+            ],
         ];
     }
 
-    private function recommendation(
-        ?float $businessRoas,
-        ?float $targetGross,
-        ?float $shopeeRoas,
-        ?float $targetShopee,
-        ?float $setRoas,
-        float $netProfit
-    ): array {
-        $lines = [];
+    /** @return list<array{term: string, plain: string, formula: string}> */
+    private function glossary(): array
+    {
+        return [
+            [
+                'term' => 'HPP / COGS',
+                'plain' => 'Biaya pokok barang (bahan + kemasan) per produk terjual.',
+                'formula' => 'COGS = (HPP + packaging) × qty',
+            ],
+            [
+                'term' => 'Margin profit',
+                'plain' => 'Sisa dari harga jual setelah HPP — belum potong fee & iklan.',
+                'formula' => '(Penjualan kotor − COGS) ÷ Penjualan kotor',
+            ],
+            [
+                'term' => 'ROAS Shopee',
+                'plain' => 'Angka di dashboard Shopee Ads — omzet atribusi iklan dibagi biaya iklan.',
+                'formula' => 'GMV iklan (AMS) ÷ Spend iklan',
+            ],
+            [
+                'term' => 'ROAS bisnis',
+                'plain' => 'Omzet order nyata (termasuk organik) dibagi biaya iklan — cek untung riil.',
+                'formula' => 'Penjualan kotor order ÷ Spend iklan',
+            ],
+            [
+                'term' => 'ACOS',
+                'plain' => 'Persentase iklan dari omzet — semakin kecil semakin efisien.',
+                'formula' => 'Spend iklan ÷ Penjualan kotor',
+            ],
+            [
+                'term' => 'Set ROAS',
+                'plain' => 'Angka yang CEO input di Shopee Ads agar iklan tidak boros.',
+                'formula' => 'Target ROAS ÷ 70% (buffer Shopee)',
+            ],
+        ];
+    }
 
-        if ($targetGross) {
-            $lines[] = 'Target ROAS bisnis minimal **' . number_format($targetGross, 2) . 'x** agar laba kotor menutupi spend iklan.';
-        }
-        if ($setRoas) {
-            $lines[] = 'Rekomendasi **Set ROAS** di dashboard Shopee Ads: **' . number_format($setRoas, 2) . 'x** (estimasi, basis GMV AMS).';
-        } elseif ($targetShopee) {
-            $lines[] = 'Target ROAS Shopee (GMV): **≥ ' . number_format($targetShopee, 2) . 'x**.';
-        }
-        if ($businessRoas !== null && $targetGross) {
-            if ($businessRoas < $targetGross) {
-                $lines[] = 'ROAS bisnis **' . number_format($businessRoas, 2) . 'x** — di bawah target. Kurangi spend atau perbaiki harga/HPP.';
-            } else {
-                $lines[] = 'ROAS bisnis **' . number_format($businessRoas, 2) . 'x** — di atas impas. Scale iklan hanya pada SKU star.';
-            }
-        }
-        if ($shopeeRoas !== null) {
-            $lines[] = 'ROAS GMV AMS periode ini: **' . number_format($shopeeRoas, 2) . 'x**.';
-        }
+    /** @return list<array{label: string, formula: string}> */
+    private function formulasReference(): array
+    {
+        return [
+            ['label' => 'Margin profit', 'formula' => '(Harga jual − HPP) ÷ Harga jual'],
+            ['label' => 'Target ACOS', 'formula' => 'Margin − Fee% − Ops% − Target laba%'],
+            ['label' => 'Target ROAS', 'formula' => '1 ÷ Target ACOS'],
+            ['label' => 'Set ROAS (Shopee)', 'formula' => 'Target ROAS ÷ 70%'],
+            ['label' => 'ROAS Shopee (AMS)', 'formula' => 'GMV iklan ÷ Spend'],
+            ['label' => 'ROAS impas bisnis', 'formula' => '1 ÷ (Laba kotor ÷ Kotor)'],
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $products
+     * @return array{severity: string, title: string, headline: string, steps: list<string>, cta: ?array{label: string, route: string}}
+     */
+    private function ceoAction(
+        ?float $businessRoas,
+        ?float $targetRoas,
+        ?float $shopeeRoas,
+        ?float $setRoas,
+        float $netProfit,
+        array $products
+    ): array {
+        $stopCount = count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'stop'));
+        $cutCount = count(array_filter($products, fn ($p) => ($p['action']['code'] ?? '') === 'cut'));
+
         if ($netProfit < 0) {
-            $lines[] = 'Laba bersih negatif — selain ROAS, cek HPP, fee promo, dan operasional bulan ini.';
+            return [
+                'severity' => 'danger',
+                'title' => 'Toko masih rugi',
+                'headline' => 'Iklan saja tidak cukup — cek HPP, fee, dan operasional dulu.',
+                'steps' => array_values(array_filter([
+                    $setRoas ? 'Di Shopee Ads, set ROAS minimal **' . number_format($setRoas, 1) . 'x**.' : null,
+                    'Potong iklan produk merah (Stop/Kurangi) di bawah.',
+                    'Buka Kalkulator Harga untuk simulasi naik harga.',
+                ])),
+                'cta' => ['label' => 'Buka Kalkulator', 'route' => 'ceo.kalkulator'],
+            ];
+        }
+
+        if ($businessRoas !== null && $targetRoas && $businessRoas < $targetRoas * 0.9) {
+            return [
+                'severity' => 'warning',
+                'title' => 'Iklan terlalu agresif',
+                'headline' => 'ROAS bisnis ' . number_format($businessRoas, 1) . 'x — di bawah aman ' . number_format($targetRoas, 1) . 'x.',
+                'steps' => array_values(array_filter([
+                    $setRoas ? 'Set ROAS di Shopee: **' . number_format($setRoas, 1) . 'x**.' : null,
+                    $cutCount + $stopCount > 0 ? "Review **{$cutCount}** produk kurangi & **{$stopCount}** stop iklan." : 'Review produk dengan spend tertinggi.',
+                ])),
+                'cta' => ['label' => 'Lihat produk', 'route' => '#roas-products'],
+            ];
+        }
+
+        if ($businessRoas !== null && $targetRoas && $businessRoas >= $targetRoas) {
+            return [
+                'severity' => 'success',
+                'title' => 'Iklan sehat',
+                'headline' => 'ROAS bisnis ' . number_format($businessRoas, 1) . 'x — boleh scale produk hijau (Star) saja.',
+                'steps' => array_values(array_filter([
+                    $setRoas ? 'Pertahankan Set ROAS ≥ **' . number_format($setRoas, 1) . 'x**.' : null,
+                    $shopeeRoas ? 'Di dashboard Shopee, ROAS GMV saat ini **' . number_format($shopeeRoas, 1) . 'x**.' : null,
+                ])),
+                'cta' => null,
+            ];
         }
 
         return [
-            'title' => 'Rekomendasi ROAS toko',
-            'lines' => $lines,
+            'severity' => 'info',
+            'title' => 'Lengkapi data iklan',
+            'headline' => 'Sync AMS atau pilih periode yang ada spend iklan.',
+            'steps' => ['Buka Integrasi Shopee → pastikan AMS terhubung.', 'Jalankan sync iklan dari Kelola Data.'],
+            'cta' => ['label' => 'Kelola Data', 'route' => 'manage.index'],
         ];
     }
 
     /**
      * @param array<int|string, array<string, mixed>> $adsByProduct
+     * @return list<array<string, mixed>>
      */
     private function productAdvice(array $products, float $safety, array $adsByProduct): array
     {
@@ -153,17 +253,24 @@ class RoasAdvisorService
             $shopeeRoas = ($ads['shopee_roas'] ?? null) ?? ($spend > 0 && $gmv > 0 ? $gmv / $spend : null);
             $businessRoas = $gross > 0 ? $gross / $spend : null;
 
-            $cr = $gross > 0 ? $gp / $gross : 0;
-            $be = $cr > 0 ? 1 / $cr : null;
-            $targetBusiness = $be ? $be * $safety : null;
+            $margin = $gross > 0 ? $gp / $gross : 0;
+            $targetRoas = $margin > 0 ? (1 / $margin) * $safety : null;
 
             $setRoas = null;
-            $beShopee = null;
-            if ($cr > 0 && $gross > 0 && $gmv > 0) {
-                $gmvToGross = $gross / $gmv;
-                $beShopee = (1 / $cr) / max(0.01, $gmvToGross);
+            if ($margin > 0 && $gross > 0 && $gmv > 0) {
+                $beShopee = (1 / $margin) / max(0.01, $gross / $gmv);
                 $setRoas = ($beShopee * $safety) / 0.70;
             }
+
+            $netProfit = (int) round($p['net_profit'] ?? 0);
+            $action = $this->productAction(
+                $businessRoas,
+                $targetRoas,
+                $shopeeRoas,
+                $setRoas,
+                $netProfit,
+                $p['tier'] ?? null
+            );
 
             $out[] = [
                 'product_id' => $pid,
@@ -173,15 +280,58 @@ class RoasAdvisorService
                 'shopee_roas' => $shopeeRoas !== null ? round($shopeeRoas, 2) : null,
                 'business_roas' => $businessRoas !== null ? round($businessRoas, 2) : null,
                 'set_roas_shopee' => $setRoas !== null ? round($setRoas, 2) : null,
-                'target_business' => $targetBusiness ? round($targetBusiness, 2) : null,
-                'gap_business' => ($targetBusiness && $businessRoas) ? round($targetBusiness - $businessRoas, 2) : null,
-                'net_profit' => (int) round($p['net_profit'] ?? 0),
+                'target_roas' => $targetRoas ? round($targetRoas, 2) : null,
+                'net_profit' => $netProfit,
                 'tier' => $p['tier'] ?? null,
+                'action' => $action,
             ];
         }
 
         usort($out, fn ($a, $b) => ($b['spend'] ?? 0) <=> ($a['spend'] ?? 0));
 
-        return array_slice($out, 0, 50);
+        return array_slice($out, 0, 30);
+    }
+
+    private function productAction(
+        ?float $businessRoas,
+        ?float $targetRoas,
+        ?float $shopeeRoas,
+        ?float $setRoas,
+        int $netProfit,
+        ?string $tier
+    ): array {
+        if ($netProfit < 0 && ($businessRoas === null || ($targetRoas && $businessRoas < $targetRoas))) {
+            return [
+                'code' => 'stop',
+                'label' => 'Stop iklan',
+                'hint' => 'Produk rugi — matikan atau potong drastis.',
+                'severity' => 'danger',
+            ];
+        }
+
+        if ($targetRoas && $businessRoas !== null && $businessRoas < $targetRoas * 0.9) {
+            return [
+                'code' => 'cut',
+                'label' => 'Kurangi iklan',
+                'hint' => $setRoas ? 'Naikkan Set ROAS ke ' . number_format($setRoas, 1) . 'x.' : 'Turunkan budget.',
+                'severity' => 'warning',
+            ];
+        }
+
+        if ($tier === 'star' && $netProfit >= 0 && $businessRoas && $targetRoas && $businessRoas >= $targetRoas) {
+            return [
+                'code' => 'scale',
+                'label' => 'Boleh scale',
+                'hint' => 'Produk sehat — tambah budget pelan-pelan.',
+                'severity' => 'success',
+            ];
+        }
+
+        return [
+            'code' => 'ok',
+            'label' => 'Pertahankan',
+            'hint' => 'Monitor mingguan.',
+            'severity' => 'info',
+        ];
     }
 }

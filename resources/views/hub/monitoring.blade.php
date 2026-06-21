@@ -1,10 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Laba Detail — Laporan Keuangan')
-
-@push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
-@endpush
+@section('title', 'Laba Detail')
 
 @section('content')
 @php
@@ -16,38 +12,15 @@
     $fb = $fee_breakdown ?? [];
     $fbPct = $fee_breakdown_pct ?? [];
     $health = $analysis['health_score'] ?? 0;
+    $q = request()->query();
+    $heroExtra = '<div class="d-flex flex-wrap align-items-center gap-2 small text-muted">'
+        .'<span><i class="far fa-calendar-alt"></i> '.e($meta['period_label'] ?? '—').'</span>'
+        .'<span class="d-inline-flex align-items-center gap-1"><span class="report-health-ring" style="--score:'.$health.';width:32px;height:32px;font-size:0.7rem"><span>'.$health.'</span></span> Skor data</span>'
+        .'<a href="'.route('monitoring.profit', array_merge($q, ['export' => 'xlsx'])).'" class="hub-btn hub-btn-sm hub-btn-outline">Export Excel</a>'
+        .'</div>';
 @endphp
 
-<div class="report-shell">
-    {{-- Hero --}}
-    <div class="report-hero">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-            <div>
-                <h1><i class="fas fa-chart-pie me-2"></i>Laba Detail</h1>
-                <div class="report-hero-meta">
-                    <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
-                    <span><i class="far fa-clock"></i> {{ $meta['days'] ?? 0 }} hari</span>
-                    <span><i class="fas fa-sync-alt"></i> Diperbarui {{ $meta['generated_at'] ?? now()->format('d M Y H:i') }}</span>
-                    <span><i class="fas fa-filter"></i> Status: {{ ucfirst(str_replace('_',' ', $filters['status'] ?? 'completed')) }}</span>
-                    @if(!empty($shop['label']))<span><i class="fas fa-store"></i> {{ $shop['label'] }}</span>@endif
-                </div>
-            </div>
-            <div class="hub-btn-group">
-                <a href="{{ route('monitoring.profit', array_merge(request()->query(), ['export' => 'xlsx'])) }}" class="hub-btn hub-btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5);">
-                    <i class="fas fa-file-excel"></i> Export Excel
-                </a>
-            </div>
-        </div>
-        <div class="report-health">
-            <div class="report-health-ring" style="--score: {{ $health }}">
-                <span>{{ $health }}</span>
-            </div>
-            <div>
-                <strong>Skor kesehatan data & profit</strong>
-                <div class="small opacity-90">Berdasarkan kelengkapan HPP, margin, dan efisiensi iklan</div>
-            </div>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
@@ -166,6 +139,28 @@
             'subtitle' => 'Net penghasilan, HPP, dan laba bersih per bulan',
             'size' => 'hero',
             'badge' => 'P&L',
+        ])
+
+        <div class="fc-chart-duo">
+            @include('hub.partials.chart-panel', [
+                'id' => 'chartFeeTree',
+                'title' => 'Potongan Shopee',
+                'subtitle' => 'Treemap — besar kotak = potongan lebih besar',
+                'size' => 'square',
+            ])
+            @include('hub.partials.chart-panel', [
+                'id' => 'chartSkuTree',
+                'title' => 'Laba per produk',
+                'subtitle' => 'Top SKU — treemap laba bersih',
+                'size' => 'square',
+            ])
+        </div>
+
+        @include('hub.partials.chart-panel', [
+            'id' => 'chartMarginRadial',
+            'title' => 'Margin bersih toko',
+            'subtitle' => 'Radial gauge — periode filter saat ini',
+            'size' => 'compact',
         ])
 
         <div class="hub-card">
@@ -401,15 +396,19 @@
         </div>
     </div>
     @endif
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const monthly = @json($monthly ?? []);
-    if (monthly.length && typeof HubCharts !== 'undefined') {
+    const ch = @json($charts ?? []);
+    if (typeof HubCharts !== 'undefined') {
         HubCharts.renderMonthly('chartMonthly', monthly);
+        HubCharts.renderPreset('chartFeeTree', 'profit_fee_tree', ch.fee_treemap || {});
+        HubCharts.renderPreset('chartSkuTree', 'profit_sku_tree', ch.product_treemap || {});
+        HubCharts.renderPreset('chartMarginRadial', 'targets_progress', ch.margin_radial || {});
     }
 });
 </script>

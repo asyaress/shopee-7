@@ -1,28 +1,15 @@
 @extends('layouts.hub')
 
-@section('title', 'Kelola Data - Shopee Profit Hub')
-
+@section('title', 'Kelola Data')
 @section('content')
 @php
     $st = $stats ?? [];
     $hppPct = $st['hpp_complete_pct'] ?? 0;
 @endphp
 
-<div class="report-shell">
-    @include('hub.partials.page-hero', [
-        'icon' => 'fa-database',
-        'title' => 'Pusat Kelola Data',
-        'subtitle' => 'Sinkronisasi Shopee, master biaya, dan kualitas data untuk laporan monitoring',
-        'meta' => [
-            ['icon' => 'fa-clock', 'text' => 'Diperbarui ' . ($meta['generated_at'] ?? now()->format('d M Y H:i'))],
-            ['icon' => 'fa-store', 'text' => $token ? 'Shop ' . $token->shop_id : 'Belum terhubung'],
-            ['icon' => 'fa-bullhorn', 'text' => ($adsConfigured ?? false) ? (($adsToken ?? null) ? 'Ads App connected' : 'Ads App belum connect') : 'Ads App opsional'],
-            ['icon' => 'fa-chart-line', 'text' => ($amsConfigured ?? false) ? (($amsToken ?? null) ? 'AMS App connected' : 'AMS App belum connect') : 'AMS App opsional'],
-        ],
-        'actions' => '<a href="' . route('monitoring.index') . '" class="hub-btn hub-btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)"><i class="fas fa-chart-line"></i> Monitoring</a>',
-    ])
+@include('hub.partials.ceo.shell-open')
 
-    <div class="report-kpi-hero" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+    <div class="report-kpi-hero mb-3" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));" data-ceo="main-kpi">
         <div class="report-kpi-card">
             <div class="label">Total Produk</div>
             <div class="value">{{ hub_num($st['products_total'] ?? 0) }}</div>
@@ -254,7 +241,7 @@
             </form>
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')

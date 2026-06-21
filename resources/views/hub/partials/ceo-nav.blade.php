@@ -4,7 +4,7 @@
         'targets' => ['route' => 'ceo.targets', 'icon' => 'fa-bullseye', 'label' => 'Target'],
         'settlement' => ['route' => 'ceo.settlement', 'icon' => 'fa-wallet', 'label' => 'Arus kas'],
         'promo' => ['route' => 'ceo.promo', 'icon' => 'fa-tags', 'label' => 'Promo'],
-        'roas' => ['route' => 'ceo.roas', 'icon' => 'fa-chart-line', 'label' => 'ROAS'],
+        'roas' => ['route' => 'ceo.roas', 'icon' => 'fa-chart-line', 'label' => 'Analisa Iklan'],
         'decisions' => ['route' => 'ceo.decisions', 'icon' => 'fa-clipboard-list', 'label' => 'Log keputusan'],
     ];
 @endphp

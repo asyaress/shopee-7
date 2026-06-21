@@ -1,9 +1,8 @@
 @extends('layouts.hub')
 
-@section('title', 'Monitoring — Iklan Shopee')
+@section('title', 'Iklan Shopee')
 
 @push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=1" rel="stylesheet">
 @include('hub.partials.datatables-assets')
 @endpush
 
@@ -13,24 +12,16 @@
     $meta = $meta ?? [];
     $charts = $charts ?? [];
     $roas = $charts['roas_acos'] ?? [];
+    $heroExtra = '<span class="small text-muted">Iklan '.hub_rp($s['ads_total'] ?? 0).' · ROAS '.(isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 1).'x' : '—').'</span>';
 @endphp
 
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-bullhorn me-2"></i>Iklan Shopee Ads</h1>
-        <div class="report-hero-meta">
-            <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
-            <span>Spend {{ hub_rp($s['ads_total'] ?? 0) }}</span>
-            <span>ROAS {{ isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 2).'x' : '—' }}</span>
-            <span>ACOS {{ hub_pct($s['acos'] ?? null) }}</span>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
     @php $adsShop = ($recommendations ?? [])['ads_shop'] ?? []; @endphp
-    <div class="mon-kpi-row">
+    <div class="mon-kpi-row" data-ceo="main-kpi">
         <div class="mon-kpi"><div class="label">Total spend</div><div class="value">{{ hub_rp($s['ads_total'] ?? 0) }}</div></div>
         <div class="mon-kpi"><div class="label">ROAS bisnis</div><div class="value">{{ isset($s['roas']) && $s['roas'] ? number_format($s['roas'], 2).'x' : '—' }}</div></div>
         <div class="mon-kpi"><div class="label">CPC toko</div><div class="value">{{ isset($adsShop['cpc_shop']) ? hub_rp($adsShop['cpc_shop']) : '—' }}</div></div>
@@ -117,7 +108,7 @@
         </div>
     </div>
     @endif
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')
@@ -125,12 +116,18 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const c = @json($charts);
-    HubCharts.render('chAdsDaily', 'line', c.ads_daily || {});
-    HubCharts.render('chAdsMonthly', 'bar', { labels: (c.ads_monthly || {}).labels, data: (c.ads_monthly || {}).data, label: 'Spend (Rp)' });
-    HubCharts.render('chTopSpend', 'bar_horizontal', c.top_spend || {});
-    HubCharts.render('chCtr', 'line', {
+    HubCharts.renderPreset('chAdsDaily', 'ads_daily', c.ads_daily || {});
+    HubCharts.renderPreset('chAdsMonthly', 'ads_monthly', {
+        labels: (c.ads_monthly || {}).labels,
+        data: (c.ads_monthly || {}).data,
+        label: 'Spend (Rp)',
+    });
+    HubCharts.renderPreset('chTopSpend', 'ads_top', c.top_spend || {});
+    HubCharts.renderPreset('chCtr', 'ads_ctr', {
+        data: (c.ctr_daily || {}).data,
         labels: (c.ctr_daily || {}).labels,
-        datasets: [{ label: 'CTR %', data: (c.ctr_daily || {}).data }]
+        label: 'CTR %',
+        isPct: true,
     });
 
     HubDataTable.init('#adsProductsTable', {

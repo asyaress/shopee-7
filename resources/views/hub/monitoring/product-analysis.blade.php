@@ -19,37 +19,12 @@
     $action = $s['action'] ?? [];
     $q = request()->query();
     $meta = $report['meta'] ?? [];
+    $ceoActionSkip = true;
+    $heroExtra = '<a href="'.route('monitoring.product-analysis.index', $q).'" class="small"><i class="fas fa-arrow-left"></i> Ganti produk</a>'
+        .' · <strong>'.e($s['name'] ?? $product->name).'</strong>';
 @endphp
 
-<div class="report-shell">
-    <div class="report-hero">
-        <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
-            <div>
-                <div class="small opacity-75 mb-1"><a href="{{ route('monitoring.product-analysis.index', $q) }}" class="text-white"><i class="fas fa-arrow-left"></i> Pilih produk lain</a></div>
-                <h1 class="h4 mb-1">{{ $s['name'] ?? $product->name }}</h1>
-                <div class="report-hero-meta">
-                    <span class="sku-tier {{ $s['tier'] ?? '' }}">{{ strtoupper($s['tier'] ?? '—') }}</span>
-                    @if($bcg)<span class="hub-pill">{{ $bcg['quadrant_label'] ?? '' }}</span>@endif
-                    <span>Item {{ $product->external_item_id ?: '—' }}</span>
-                    <span>SKU {{ $s['sku'] ?? '—' }}</span>
-                    <span>{{ $shop['label'] ?? '' }}</span>
-                    @include('hub.partials.product-shopee-links', ['links' => $s['links'] ?? []])
-                </div>
-            </div>
-            <div class="text-end">
-                <div class="small opacity-75">{{ $meta['period_label'] ?? '' }}</div>
-                <a href="{{ route('hpp.index') }}" class="hub-btn hub-btn-outline hub-btn-sm mt-1" style="color:#fff;border-color:rgba(255,255,255,.5)">
-                    <i class="fas fa-edit"></i> HPP
-                </a>
-                <a href="{{ route('ceo.roas', $q) }}" class="hub-btn hub-btn-outline hub-btn-sm mt-1" style="color:#fff;border-color:rgba(255,255,255,.5)">
-                    <i class="fas fa-chart-line"></i> ROAS Toko
-                </a>
-                <a href="{{ route('ceo.kalkulator', ['product_id' => $product->id] + $q) }}" class="hub-btn hub-btn-outline hub-btn-sm mt-1" style="color:#fff;border-color:rgba(255,255,255,.5)">
-                    <i class="fas fa-calculator"></i> Kalkulator
-                </a>
-            </div>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
@@ -229,24 +204,9 @@
 
     {{-- Tren bulanan --}}
     @if(!empty($monthly))
-    <div class="hub-card pa-section">
-        <div class="hub-card-header"><h2 class="report-section-title">Tren 6 Bulan</h2></div>
-        <div class="hub-card-body p-0">
-            <table class="report-table">
-                <thead><tr><th>Bulan</th><th class="num">Qty</th><th class="num">Kotor</th><th class="num">Iklan</th><th class="num">ROAS bisnis</th></tr></thead>
-                <tbody>
-                @foreach($monthly as $m)
-                <tr>
-                    <td>{{ $m['label'] }}</td>
-                    <td class="num">{{ $m['qty'] }}</td>
-                    <td class="num">{{ hub_rp($m['gross'], true) }}</td>
-                    <td class="num">{{ hub_rp($m['ads'], true) }}</td>
-                    <td class="num">{{ isset($m['roas']) ? number_format($m['roas'], 2).'x' : '—' }}</td>
-                </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
+    <div class="fc-chart-stack pa-section">
+        @include('hub.partials.chart-panel', ['id' => 'paTrend', 'title' => 'Tren penjualan produk', 'subtitle' => 'Area — omzet & iklan 6 bulan', 'size' => 'hero'])
+        @include('hub.partials.chart-panel', ['id' => 'paRoasLine', 'title' => 'ROAS bisnis produk', 'subtitle' => 'Line — 1 bulan tampil sebagai gauge', 'size' => 'compact'])
     </div>
     @endif
 
@@ -284,5 +244,27 @@
             </form>
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
+
+@if(!empty($monthly))
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const monthly = @json($monthly);
+    HubCharts.renderPreset('paTrend', 'product_trend', {
+        labels: monthly.map(m => m.label),
+        columns: monthly.map(m => m.gross),
+        lines: monthly.map(m => m.ads),
+        colLabel: 'Penjualan kotor',
+        lineLabel: 'Spend iklan',
+    });
+    HubCharts.render('paRoasLine', 'line', {
+        labels: monthly.map(m => m.label),
+        datasets: [{ label: 'ROAS', data: monthly.map(m => m.roas || 0) }],
+        format: 'roas',
+    });
+});
+</script>
+@endpush
+@endif

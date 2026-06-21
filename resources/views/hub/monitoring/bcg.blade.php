@@ -1,6 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'BCG Funnel — Monitoring')
+@section('title', 'BCG & Trafik')
 
 @section('content')
 @php
@@ -16,34 +16,9 @@
         'question_mark' => ['key' => 'question_mark', 'label' => 'Question Mark', 'icon' => 'fa-question', 'class' => 'bcg-qm'],
         'dog' => ['key' => 'dog', 'label' => 'Dog', 'icon' => 'fa-paw', 'class' => 'bcg-dog'],
     ];
+    $heroExtra = '<span class="small text-muted">'.e($bcg['period']['label'] ?? '').'</span>';
 @endphp
-<div class="report-shell">
-    <div class="report-hero">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-            <div>
-                <h1><i class="fas fa-chart-scatter me-2"></i>BCG Funnel</h1>
-                <div class="report-hero-meta">
-                    <span>Trafik & konversi · {{ $bcg['period']['label'] ?? '' }}</span>
-                    <span>Batas konversi ≥ {{ $settings['conversion_threshold_pct'] ?? 2 }}%</span>
-                    <span>Baseline trafik: {{ number_format($settings['traffic_baseline'] ?? 0) }}</span>
-                </div>
-            </div>
-            @if($dataSource)
-            <span class="bcg-source-badge bcg-source-badge--{{ $dataSource }}">
-                <i class="fas {{ $dataSource === 'import' ? 'fa-file-excel' : ($dataSource === 'mixed' ? 'fa-layer-group' : 'fa-robot') }} me-1"></i>
-                {{ $bcg['data_source_label'] ?? '' }}
-            </span>
-            @endif
-        </div>
-        @if(!empty($bcg['last_auto_sync']))
-        <p class="small text-muted mb-0 mt-2">
-            Sync otomatis terakhir: {{ \Carbon\Carbon::parse($bcg['last_auto_sync'])->format('d M Y H:i') }}
-            @if(($sourceCounts['import'] ?? 0) > 0)
-            · {{ $sourceCounts['import'] }} SKU dari import Seller Center
-            @endif
-        </p>
-        @endif
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
 
@@ -61,6 +36,12 @@
         @if($bcg['performance_url'] ?? null)
         <a href="{{ $bcg['performance_url'] }}" target="_blank" rel="noopener" class="ms-1">Buka Seller Center</a>
         @endif
+    </div>
+    @endif
+
+    @if(($counts['star'] ?? 0) + ($counts['cash_cow'] ?? 0) + ($counts['question_mark'] ?? 0) + ($counts['dog'] ?? 0) > 0)
+    <div class="fc-chart-stack mb-3">
+        @include('hub.partials.chart-panel', ['id' => 'bcgPolar', 'title' => 'Komposisi produk BCG', 'subtitle' => 'Polar area — Star, Cash Cow, Question, Dog', 'size' => 'default'])
     </div>
     @endif
 
@@ -220,5 +201,19 @@
         </div>
     </div>
     @endif
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const counts = @json($counts ?? []);
+    if ((counts.star || 0) + (counts.cash_cow || 0) + (counts.question_mark || 0) + (counts.dog || 0) > 0) {
+        HubCharts.renderPreset('bcgPolar', 'bcg_mix', {
+            labels: ['Star', 'Cash Cow', 'Question', 'Dog'],
+            data: [counts.star || 0, counts.cash_cow || 0, counts.question_mark || 0, counts.dog || 0],
+        });
+    }
+});
+</script>
+@endpush

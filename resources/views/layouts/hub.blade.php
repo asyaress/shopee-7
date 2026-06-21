@@ -13,9 +13,10 @@
     <link href="{{ asset('css/hub-report.css') }}?v=3" rel="stylesheet">
     <link href="{{ asset('css/hub-pages.css') }}?v=2" rel="stylesheet">
     <link href="{{ asset('css/hub-datatables.css') }}?v=3" rel="stylesheet">
-    <link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">
-    <link href="{{ asset('css/hub-charts.css') }}?v=2" rel="stylesheet">
+    <link href="{{ asset('css/hub-monitoring.css') }}?v=8" rel="stylesheet">
+    <link href="{{ asset('css/hub-charts.css') }}?v=3" rel="stylesheet">
     <link href="{{ asset('css/hub-mobile.css') }}?v=1" rel="stylesheet">
+    <link href="{{ asset('css/hub-chatbot.css') }}?v=2" rel="stylesheet">
     @stack('styles')
 </head>
 <body class="hub-body">
@@ -86,7 +87,7 @@
                 <i class="fas fa-bullhorn"></i> Iklan
             </a>
             <a href="{{ route('ceo.roas') }}" class="nav-sublink {{ request()->routeIs('ceo.roas') ? 'active' : '' }}">
-                <i class="fas fa-chart-line"></i> ROAS
+                <i class="fas fa-chart-line"></i> Analisa Iklan
             </a>
             <a href="{{ route('monitoring.bcg') }}" class="nav-sublink {{ request()->routeIs('monitoring.bcg') ? 'active' : '' }}">
                 <i class="fas fa-chart-scatter"></i> BCG & Trafik
@@ -177,8 +178,9 @@
     </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{{ asset('js/hub-charts.js') }}?v=2"></script>
+    <script src="{{ asset('js/hub-charts.js') }}?v=3"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/hub-mobile.js') }}?v=1"></script>
     <script>
@@ -186,5 +188,11 @@
         window.fmtPct = (r) => r == null ? '—' : (r * 100).toFixed(1) + '%';
     </script>
     @stack('scripts')
+    @if(!empty($ceoGuide))
+        @include('hub.partials.ceo.highlight')
+        <script src="{{ asset('js/ceo-guide.js') }}?v=1"></script>
+    @endif
+    @include('hub.partials.ceo.chatbot')
+    <script src="{{ asset('js/hub-chatbot.js') }}?v=2"></script>
 </body>
 </html>

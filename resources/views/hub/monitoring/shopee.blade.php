@@ -1,10 +1,6 @@
 @extends('layouts.hub')
 
-@section('title', 'Monitoring — Potongan Shopee')
-
-@push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=1" rel="stylesheet">
-@endpush
+@section('title', 'Potongan Shopee')
 
 @section('content')
 @php
@@ -13,22 +9,15 @@
     $fb = $fee_breakdown ?? [];
     $fbPct = $fee_breakdown_pct ?? [];
     $charts = $charts ?? [];
+    $heroExtra = '<span class="small text-muted">Fee total '.hub_rp($s['fee_total'] ?? 0).' · Take rate '.hub_pct($s['take_rate'] ?? null).'</span>';
 @endphp
 
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-percent me-2"></i>Potongan & Fee Shopee</h1>
-        <div class="report-hero-meta">
-            <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
-            <span>Total fee <strong>{{ hub_rp($s['fee_total'] ?? 0) }}</strong></span>
-            <span>Take rate <strong>{{ hub_pct($s['take_rate'] ?? null) }}</strong></span>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
-    <div class="mon-kpi-row">
+    <div class="mon-kpi-row" data-ceo="main-kpi">
         <div class="mon-kpi"><div class="label">Pendapatan kotor</div><div class="value">{{ hub_rp($s['gross'] ?? 0) }}</div></div>
         <div class="mon-kpi"><div class="label">Setelah fee (net)</div><div class="value">{{ hub_rp($s['net'] ?? 0) }}</div></div>
         <div class="mon-kpi"><div class="label">Total potongan</div><div class="value amt-neg">{{ hub_rp($s['fee_total'] ?? 0) }}</div></div>
@@ -61,20 +50,20 @@
             @endforeach
         </div>
     </div>
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const c = @json($charts);
-    HubCharts.render('chFeePie', 'doughnut', c.fee_doughnut || {});
-    HubCharts.render('chFeeMonthly', 'bar', c.fee_monthly || {});
-    HubCharts.render('chTakeRate', 'line', {
+    HubCharts.renderPreset('chFeePie', 'shopee_fee_pie', c.fee_doughnut || {});
+    HubCharts.renderPreset('chFeeMonthly', 'shopee_fee_month', c.fee_monthly || {});
+    HubCharts.renderPreset('chTakeRate', 'shopee_take_rate', {
         labels: (c.take_rate || {}).labels,
-        datasets: [{ label: 'Take rate %', data: (c.take_rate || {}).data }]
+        datasets: [{ label: 'Take rate %', data: (c.take_rate || {}).data }],
     });
-    HubCharts.render('chGrossNet', 'line', c.gross_vs_net || {});
+    HubCharts.renderPreset('chGrossNet', 'shopee_gross', c.gross_vs_net || {});
 });
 </script>
 @endpush

@@ -1,32 +1,21 @@
 @extends('layouts.hub')
 
-@section('title', 'Monitoring — Pendapatan')
-
-@push('styles')
-<link href="{{ asset('css/hub-monitoring.css') }}?v=1" rel="stylesheet">
-@endpush
+@section('title', 'Pendapatan')
 
 @section('content')
 @php
     $s = $summary ?? [];
     $meta = $meta ?? [];
     $charts = $charts ?? [];
+    $heroExtra = '<span class="small text-muted"><i class="far fa-calendar-alt"></i> '.e($meta['period_label'] ?? '—').' · '.hub_num($s['orders_count'] ?? 0).' order</span>';
 @endphp
 
-<div class="report-shell">
-    <div class="report-hero">
-        <h1><i class="fas fa-coins me-2"></i>Pendapatan & Penjualan</h1>
-        <div class="report-hero-meta">
-            <span><i class="far fa-calendar-alt"></i> {{ $meta['period_label'] ?? '—' }}</span>
-            <span>{{ hub_num($s['orders_count'] ?? 0) }} pesanan</span>
-            <span>Rata-rata/order {{ hub_rp($s['avg_order_net'] ?? 0) }}</span>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.hub-zone-nav')
     @include('hub.partials.monitoring-filter')
 
-    <div class="mon-kpi-row">
+    <div class="mon-kpi-row" data-ceo="main-kpi">
         <div class="mon-kpi"><div class="label">Penjualan kotor</div><div class="value">{{ hub_rp($s['gross'] ?? 0) }}</div></div>
         <div class="mon-kpi"><div class="label">Net penghasilan</div><div class="value">{{ hub_rp($s['net'] ?? 0) }}</div></div>
         <div class="mon-kpi"><div class="label">Laba kotor</div><div class="value">{{ hub_rp($s['gross_profit'] ?? 0) }}</div></div>
@@ -71,17 +60,25 @@
         </div>
     </div>
     @endif
-</div>
+@include('hub.partials.ceo.shell-close')
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const c = @json($charts);
-    HubCharts.render('chRevenue', 'line', c.revenue_trend || {});
-    HubCharts.render('chOrders', 'bar', { labels: (c.orders_bar || {}).labels, data: (c.orders_bar || {}).data, label: 'Pesanan' });
-    HubCharts.render('chProfitStack', 'line', c.profit_stack || {});
-    HubCharts.render('chSummaryBar', 'bar', { labels: (c.summary_compare || {}).labels, data: (c.summary_compare || {}).data, label: 'Nilai (Rp)' });
+    HubCharts.renderPreset('chRevenue', 'revenue_trend', c.revenue_trend || {});
+    HubCharts.renderPreset('chOrders', 'revenue_orders', {
+        labels: (c.orders_bar || {}).labels,
+        data: (c.orders_bar || {}).data,
+        label: 'Pesanan',
+    });
+    HubCharts.renderPreset('chProfitStack', 'revenue_profit', c.profit_stack || {});
+    HubCharts.renderPreset('chSummaryBar', 'revenue_summary', {
+        labels: (c.summary_compare || {}).labels,
+        data: (c.summary_compare || {}).data,
+        label: 'Nilai (Rp)',
+    });
 });
 </script>
 @endpush

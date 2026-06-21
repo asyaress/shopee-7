@@ -28,6 +28,6 @@
         'fc-chart-panel__canvas--compact' => $size === 'compact',
         'fc-chart-panel__canvas--square' => $size === 'square',
     ])>
-        <canvas id="{{ $id }}" role="img" aria-label="{{ $title }}"></canvas>
+        <div id="{{ $id }}" class="hub-apex-host" role="img" aria-label="{{ $title }}"></div>
     </div>
 </div>

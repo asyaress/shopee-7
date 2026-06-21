@@ -1,114 +1,110 @@
 @extends('layouts.hub')
-@section('title', 'ROAS Center')
-@push('styles')<link href="{{ asset('css/hub-monitoring.css') }}?v=6" rel="stylesheet">@endpush
+@section('title', 'Analisa Iklan')
 @section('content')
 @php
-    $m = $roas['metrics'] ?? [];
-    $rec = $roas['recommendation'] ?? [];
-    $defs = $roas['definitions'] ?? [];
+    $sc = $roas['scorecard'] ?? [];
+    $ceoAction = $roas['ceo_action'] ?? [];
+    $counts = $roas['counts'] ?? [];
     $q = request()->query();
+    $setRoas = $sc['set_roas_shopee'] ?? null;
+    $ceoActionSkip = true;
 @endphp
-<div class="report-shell">
-    <div class="report-hero">
-        <div class="d-flex flex-wrap justify-content-between gap-2">
-            <div>
-                <h1><i class="fas fa-chart-line me-2"></i>ROAS Center</h1>
-                <p class="small mb-0 opacity-90">Analisis ROAS AMS + bisnis · rekomendasi Set ROAS per produk</p>
-            </div>
-            <div class="text-end">
-                <span class="hub-pill hub-pill-light">{{ $shop['label'] ?? '' }}</span>
-            </div>
-        </div>
-    </div>
+@include('hub.partials.ceo.shell-open')
 
     @include('hub.partials.monitoring-filter')
 
-    <div class="hub-card mb-3">
-        <div class="hub-card-body small row g-2">
-            @foreach($defs as $key => $text)
-            <div class="col-md-6"><strong>{{ str_replace('_', ' ', ucfirst($key)) }}:</strong> {{ $text }}</div>
-            @endforeach
+    <div class="roas-hero-card mb-3" data-ceo="main-kpi">
+        <div class="roas-hero-label">Set ROAS di Shopee Ads</div>
+        <div class="roas-hero-value">{{ $setRoas ? number_format($setRoas, 1).'x' : '—' }}</div>
+        <div class="roas-hero-sub">Ketik angka ini di dashboard iklan Shopee</div>
+        @if($setRoas && ($sc['shopee_roas_now'] ?? null))
+        <div class="roas-hero-compare">
+            Sekarang Shopee: <strong>{{ number_format($sc['shopee_roas_now'], 1) }}x</strong>
+            · Bisnis: <strong>{{ isset($sc['business_roas_now']) ? number_format($sc['business_roas_now'], 1).'x' : '—' }}</strong>
+        </div>
+        @endif
+    </div>
+
+    @include('hub.partials.ceo.action', ['action' => $ceoAction])
+
+    <div class="roas-mini-grid mb-3">
+        <div class="roas-mini">
+            <span class="roas-mini-label">Uang keluar iklan</span>
+            <span class="roas-mini-val">{{ hub_rp($sc['ads_spend'] ?? 0, true) }}</span>
+        </div>
+        <div class="roas-mini">
+            <span class="roas-mini-label">Omzet dari iklan</span>
+            <span class="roas-mini-val">{{ hub_rp($sc['ads_gmv'] ?? 0, true) }}</span>
+        </div>
+        <div class="roas-mini">
+            <span class="roas-mini-label">Sisa setelah HPP</span>
+            <span class="roas-mini-val">{{ isset($sc['margin_profit_pct']) ? $sc['margin_profit_pct'].'%' : '—' }}</span>
+        </div>
+        <div class="roas-mini">
+            <span class="roas-mini-label">Laba bersih</span>
+            <span class="roas-mini-val {{ ($sc['net_profit'] ?? 0) >= 0 ? '' : 'amt-neg' }}">{{ hub_rp($sc['net_profit'] ?? 0, true) }}</span>
         </div>
     </div>
 
-    <div class="report-kpi-hero mb-3">
-        <div class="report-kpi-card">
-            <div class="label">ROAS Shopee (GMV AMS)</div>
-            <div class="value">{{ isset($m['shopee_ads_roas']) ? number_format($m['shopee_ads_roas'], 2).'x' : '—' }}</div>
-            <div class="sub">GMV {{ hub_rp($m['ads_gmv'] ?? 0) }}</div>
-        </div>
-        <div class="report-kpi-card">
-            <div class="label">ROAS bisnis</div>
-            <div class="value">{{ isset($m['business_roas']) ? number_format($m['business_roas'], 2).'x' : '—' }}</div>
-            <div class="sub">Kotor ÷ spend</div>
-        </div>
-        <div class="report-kpi-card positive">
-            <div class="label">Target ROAS bisnis</div>
-            <div class="value">{{ isset($m['target_roas_gross']) ? number_format($m['target_roas_gross'], 2).'x' : '—' }}</div>
-            <div class="sub">Impas {{ isset($m['breakeven_roas_gross']) ? number_format($m['breakeven_roas_gross'], 2).'x' : '—' }}</div>
-        </div>
-        <div class="report-kpi-card highlight">
-            <div class="label">Set ROAS Shopee (rekom.)</div>
-            <div class="value">{{ isset($m['set_roas_shopee']) ? number_format($m['set_roas_shopee'], 2).'x' : '—' }}</div>
-            <div class="sub">Input di dashboard iklan</div>
-        </div>
-        <div class="report-kpi-card">
-            <div class="label">Spend AMS</div>
-            <div class="value">{{ hub_rp($m['ads_spend'] ?? 0, true) }}</div>
+    @if(!empty($charts))
+    <div class="fc-chart-stack mb-3">
+        @include('hub.partials.chart-panel', ['id' => 'roasDaily', 'title' => 'Iklan harian', 'subtitle' => 'Area — spend & omzet iklan per hari', 'size' => 'hero'])
+        <div class="fc-chart-duo">
+            @include('hub.partials.chart-panel', ['id' => 'roasMonth', 'title' => 'Iklan per bulan', 'subtitle' => 'Column — 1 bulan = gauge radial', 'size' => 'default'])
+            @include('hub.partials.chart-panel', ['id' => 'roasTop', 'title' => 'Top produk iklan', 'subtitle' => 'Bar horizontal — spend tertinggi', 'size' => 'default'])
         </div>
     </div>
+    @endif
 
-    <div class="mon-decision-card mb-3">
-        <h2 class="h5">{{ $rec['title'] ?? 'Rekomendasi' }}</h2>
-        <ul class="mb-0">
-            @foreach($rec['lines'] ?? [] as $line)
-            <li>{!! preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', e($line)) !!}</li>
-            @endforeach
-        </ul>
-    </div>
-
-    <div class="hub-card">
-        <div class="hub-card-header">
-            <h2 class="report-section-title">Per produk — AMS & Set ROAS</h2>
-            <p class="report-section-desc mb-0">Diurutkan spend tertinggi · klik nama untuk analisis lengkap</p>
-        </div>
-        <div class="hub-card-body p-0">
-            <div class="table-responsive">
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th>Produk</th>
-                            <th class="num">Spend</th>
-                            <th class="num">GMV AMS</th>
-                            <th class="num">Shopee ROAS</th>
-                            <th class="num">Business ROAS</th>
-                            <th class="num">Set ROAS</th>
-                            <th class="num">Gap</th>
-                            <th class="num">Laba</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @forelse($roas['products'] ?? [] as $p)
-                    <tr>
-                        <td>
-                            <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + $q) }}">{{ $p['name'] }}</a>
-                            @if($p['tier'] ?? null)<span class="sku-tier {{ $p['tier'] }} ms-1">{{ $p['tier'] }}</span>@endif
-                        </td>
-                        <td class="num">{{ hub_rp($p['spend'], true) }}</td>
-                        <td class="num">{{ hub_rp($p['gmv_ams'], true) }}</td>
-                        <td class="num">{{ $p['shopee_roas'] !== null ? number_format($p['shopee_roas'], 2).'x' : '—' }}</td>
-                        <td class="num">{{ $p['business_roas'] !== null ? number_format($p['business_roas'], 2).'x' : '—' }}</td>
-                        <td class="num fw-bold">{{ $p['set_roas_shopee'] !== null ? number_format($p['set_roas_shopee'], 2).'x' : '—' }}</td>
-                        <td class="num {{ ($p['gap_business'] ?? 0) < 0 ? 'amt-neg' : 'amt-pos' }}">{{ $p['gap_business'] !== null ? number_format($p['gap_business'], 2) : '—' }}</td>
-                        <td class="num {{ ($p['net_profit'] ?? 0) >= 0 ? '' : 'amt-neg' }}">{{ hub_rp($p['net_profit'], true) }}</td>
-                    </tr>
-                    @empty
-                    <tr><td colspan="8" class="text-muted text-center py-4">Sync iklan AMS dulu atau pilih periode dengan spend iklan.</td></tr>
-                    @endforelse
-                    </tbody>
-                </table>
+    <div id="roas-products" class="mb-3" data-ceo="products">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0 fw-semibold">Per produk — lakukan ini</h2>
+            <div class="roas-count-pills">
+                @if(($counts['scale'] ?? 0) > 0)<span class="roas-pill scale">{{ $counts['scale'] }} boleh tambah</span>@endif
+                @if(($counts['cut'] ?? 0) > 0)<span class="roas-pill cut">{{ $counts['cut'] }} kurangi/stop</span>@endif
             </div>
         </div>
+
+        @forelse($roas['products'] ?? [] as $p)
+        @php $a = $p['action'] ?? []; @endphp
+        <div class="roas-product-card roas-action-{{ $a['severity'] ?? 'info' }}">
+            <div class="roas-product-main">
+                <a href="{{ route('monitoring.product-analysis.show', ['product' => $p['product_id']] + $q) }}" class="roas-product-name">{{ $p['name'] }}</a>
+                <span class="roas-product-action">{{ $a['label'] ?? '—' }}</span>
+            </div>
+            <div class="roas-product-meta">{{ $a['hint'] ?? '' }}</div>
+            <div class="roas-product-stats">
+                <div><span>Iklan</span><strong>{{ hub_rp($p['spend'], true) }}</strong></div>
+                <div><span>Set ROAS</span><strong>{{ $p['set_roas_shopee'] ? number_format($p['set_roas_shopee'], 1).'x' : '—' }}</strong></div>
+                <div><span>Shopee</span><strong>{{ $p['shopee_roas'] ? number_format($p['shopee_roas'], 1).'x' : '—' }}</strong></div>
+                <div><span>Laba</span><strong class="{{ ($p['net_profit'] ?? 0) >= 0 ? '' : 'amt-neg' }}">{{ hub_rp($p['net_profit'], true) }}</strong></div>
+            </div>
+        </div>
+        @empty
+        <div class="ceo-empty-state">
+            <i class="fas fa-bullhorn"></i>
+            <p>Belum ada data iklan periode ini.</p>
+            <a href="{{ route('manage.index') }}" class="hub-btn hub-btn-sm hub-btn-primary">Sync iklan dulu</a>
+        </div>
+        @endforelse
     </div>
-</div>
+
+@include('hub.partials.ceo.shell-close')
 @endsection
+
+@if(!empty($charts))
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const c = @json($charts);
+    HubCharts.renderPreset('roasDaily', 'ads_daily', c.ads_daily || {});
+    HubCharts.renderPreset('roasMonth', 'ads_monthly', {
+        labels: (c.ads_monthly || {}).labels,
+        data: (c.ads_monthly || {}).data,
+        label: 'Spend iklan',
+    });
+    HubCharts.renderPreset('roasTop', 'ads_top', c.top_spend || {});
+});
+</script>
+@endpush
+@endif

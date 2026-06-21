@@ -109,11 +109,31 @@
     margin: 0 auto;
 }
 
-.fc-chart-panel__canvas canvas {
+.fc-chart-panel__canvas canvas,
+.fc-chart-panel__canvas .hub-apex-host {
     display: block;
     width: 100% !important;
     height: 100% !important;
-    cursor: crosshair;
+    min-height: inherit;
+    cursor: default;
+}
+
+.hub-chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 1.5rem;
+}
+.hub-chart-empty i { font-size: 2rem; opacity: 0.35; margin-bottom: 0.5rem; }
+.hub-chart-empty p { margin: 0; font-size: 0.8125rem; max-width: 260px; }
+
+.fc-chart-panel--ready .fc-chart-panel__canvas {
+    opacity: 1;
 }
 
 /* Legacy wrappers — align with new stack */
@@ -166,6 +186,12 @@
     .fc-chart-duo .fc-chart-panel__canvas--square {
         max-width: none;
         margin: 0;
+    }
+
+    .fc-chart-trio {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
     }
 }
 
